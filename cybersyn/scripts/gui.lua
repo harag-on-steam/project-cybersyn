@@ -259,15 +259,15 @@ local function handle_drop_down(e)
 	set_visibility(element.parent.parent.parent.parent, element.selected_index)
 
 	if element.selected_index == 1 then
-		set_comb_operation(comb, MODE_PRIMARY_IO)
+		set_comb_operation(comb, MODE_OLD_PRIMARY_IO)
 	elseif element.selected_index == 2 then
-		set_comb_operation(comb, MODE_DEPOT)
+		set_comb_operation(comb, MODE_OLD_DEPOT)
 	elseif element.selected_index == 3 then
-		set_comb_operation(comb, MODE_REFUELER)
+		set_comb_operation(comb, MODE_OLD_REFUELER)
 	elseif element.selected_index == 4 then
-		set_comb_operation(comb, MODE_SECONDARY_IO)
+		set_comb_operation(comb, MODE_OLD_SECONDARY_IO)
 	elseif element.selected_index == 5 then
-		set_comb_operation(comb, MODE_WAGON)
+		set_comb_operation(comb, MODE_OLD_WAGON)
 	else
 		return
 	end
