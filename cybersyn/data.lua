@@ -12,6 +12,7 @@ require("prototypes.misc")
 require("prototypes.gui-style")
 
 data:extend({
+	old_combinator_entity,
 	combinator_entity,
 	combinator_out_entity,
 	combinator_item,

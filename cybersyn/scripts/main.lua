@@ -208,7 +208,7 @@ local function search_for_station_combinator(map_data, stop, comb_operation, com
 		{ pos_x - 2, pos_y - 2 },
 		{ pos_x + 2, pos_y + 2 },
 	}
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
 	for _, entity in pairs(entities) do
 		if entity.valid and entity ~= comb_forbidden and map_data.to_stop[entity.unit_number] == stop then
 			local param = get_comb_params(entity)
@@ -597,7 +597,7 @@ function on_stop_built_or_updated(map_data, stop, comb_forbidden)
 	local comb1 = nil
 	local depot_comb = nil
 	local refueler_comb = nil
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
 	for _, entity in pairs(entities) do
 		if entity.valid and entity ~= comb_forbidden then
 			local id = entity.unit_number --[[@as uint]]
@@ -636,7 +636,7 @@ local function on_stop_broken(map_data, stop)
 		{ pos_x - 2, pos_y - 2 },
 		{ pos_x + 2, pos_y + 2 },
 	}
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
 	for _, entity in pairs(entities) do
 		if entity.valid and map_data.to_stop[entity.unit_number] == stop then
 			map_data.to_stop[entity.unit_number] = nil
@@ -698,7 +698,7 @@ end
 ---@param map_data MapData
 local function find_and_add_all_stations_from_nothing(map_data)
 	for _, surface in pairs(game.surfaces) do
-		local entities = surface.find_entities_filtered({ name = COMBINATOR_NAME })
+		local entities = surface.find_entities_filtered({ name = OLD_COMBINATOR_NAME })
 		for k, comb in pairs(entities) do
 			if comb.valid then
 				on_combinator_built(map_data, comb)
@@ -714,9 +714,9 @@ local function on_built(event)
 
 	if entity.name == "train-stop" then
 		on_stop_built_or_updated(storage, entity)
-	elseif entity.name == COMBINATOR_NAME then
+	elseif entity.name == OLD_COMBINATOR_NAME then
 		on_combinator_built(storage, entity, event.tags)
-	elseif entity.name == "entity-ghost" and entity.ghost_name == COMBINATOR_NAME then
+	elseif entity.name == "entity-ghost" and entity.ghost_name == OLD_COMBINATOR_NAME then
 		on_combinator_ghost_built(storage, entity)
 	elseif entity.type == "inserter" then
 		update_stop_from_inserter(storage, entity)
@@ -735,9 +735,9 @@ local function on_broken(event)
 
 	if entity.name == "train-stop" then
 		on_stop_broken(storage, entity)
-	elseif entity.name == COMBINATOR_NAME then
+	elseif entity.name == OLD_COMBINATOR_NAME then
 		on_combinator_broken(storage, entity)
-	elseif entity.name == "entity-ghost" and entity.ghost_name == COMBINATOR_NAME then
+	elseif entity.name == "entity-ghost" and entity.ghost_name == OLD_COMBINATOR_NAME then
 		on_combinator_ghost_broken(storage, entity)
 	elseif entity.type == "inserter" then
 		update_stop_from_inserter(storage, entity, entity)
@@ -782,7 +782,7 @@ local function on_paste(event)
 	local entity = event.destination
 	if not entity or not entity.valid then return end
 
-	if entity.name == COMBINATOR_NAME then
+	if entity.name == OLD_COMBINATOR_NAME then
 		combinator_update(storage, entity, true)
 	end
 end
@@ -929,7 +929,7 @@ local function setup_picker_dollies_compat()
 	IS_PICKER_DOLLIES_PRESENT = remote.interfaces["PickerDollies"] and
 			remote.interfaces["PickerDollies"]["add_blacklist_name"]
 	if IS_PICKER_DOLLIES_PRESENT then
-		remote.call("PickerDollies", "add_blacklist_name", COMBINATOR_NAME)
+		remote.call("PickerDollies", "add_blacklist_name", OLD_COMBINATOR_NAME)
 		remote.call("PickerDollies", "add_blacklist_name", COMBINATOR_OUT_NAME)
 	end
 end
@@ -986,8 +986,8 @@ end
 
 local filter_built = {
 	{ filter = "name", name = "train-stop" },
-	{ filter = "name", name = COMBINATOR_NAME },
-	{ filter = "ghost", ghost_name = COMBINATOR_NAME },
+	{ filter = "name", name = OLD_COMBINATOR_NAME },
+	{ filter = "ghost", ghost_name = OLD_COMBINATOR_NAME },
 	{ filter = "type", type = "inserter" },
 	{ filter = "type", type = "pump" },
 	{ filter = "type", type = "straight-rail" },
@@ -996,8 +996,8 @@ local filter_built = {
 }
 local filter_broken = {
 	{ filter = "name", name = "train-stop" },
-	{ filter = "name", name = COMBINATOR_NAME },
-	{ filter = "ghost", name = COMBINATOR_NAME },
+	{ filter = "name", name = OLD_COMBINATOR_NAME },
+	{ filter = "ghost", name = OLD_COMBINATOR_NAME },
 	{ filter = "type", type = "inserter" },
 	{ filter = "type", type = "pump" },
 	{ filter = "type", type = "straight-rail" },

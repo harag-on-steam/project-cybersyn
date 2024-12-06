@@ -610,7 +610,7 @@ function reset_stop_layout(map_data, stop, is_station_or_refueler, forbidden_ent
 								supports_fluid = true
 							end
 						end
-					elseif entity.name == COMBINATOR_NAME then
+					elseif entity.name == OLD_COMBINATOR_NAME then
 						local param = map_data.to_comb_params[entity.unit_number]
 						if param.operation == MODE_OLD_WAGON then
 							local pos = entity.position

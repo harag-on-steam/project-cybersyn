@@ -1,5 +1,5 @@
 --By Mami
-combinator_recipe = flib.copy_prototype(data.raw["recipe"]["arithmetic-combinator"], COMBINATOR_NAME)
+combinator_recipe = flib.copy_prototype(data.raw["recipe"]["arithmetic-combinator"], OLD_COMBINATOR_NAME)
 --- Recipe is set in data-fixes-final, but in vanilla it should match below
 --combinator_recipe.ingredients = {
 --	{"copper-cable", 20},
@@ -19,7 +19,7 @@ cybersyn_tech.prerequisites = {
 cybersyn_tech.effects = {
 	{
 		type = "unlock-recipe",
-		recipe = COMBINATOR_NAME,
+		recipe = OLD_COMBINATOR_NAME,
 	},
 }
 cybersyn_tech.unit.ingredients = {

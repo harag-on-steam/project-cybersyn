@@ -79,8 +79,8 @@ local function handle_close(e)
 	if not player then return end
 	local rootgui = player.gui.screen
 
-	if rootgui[COMBINATOR_NAME] then
-		rootgui[COMBINATOR_NAME].destroy()
+	if rootgui[OLD_COMBINATOR_NAME] then
+		rootgui[OLD_COMBINATOR_NAME].destroy()
 		if comb.name ~= "entity-ghost" then
 			player.play_sound({ path = COMBINATOR_CLOSE_SOUND })
 		end
@@ -224,7 +224,7 @@ end
 
 local function get_allow_list_section(player_index)
 	local player = game.get_player(player_index)
-	if player.opened.name == COMBINATOR_NAME then
+	if player.opened.name == OLD_COMBINATOR_NAME then
 		return player.opened.frame.vflow.bottom_allowlist
 	end
 end
@@ -307,7 +307,7 @@ local function on_gui_opened(event)
 	local entity = event.entity
 	if not entity or not entity.valid then return end
 	local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
-	if name ~= COMBINATOR_NAME then return end
+	if name ~= OLD_COMBINATOR_NAME then return end
 	local player = game.get_player(event.player_index)
 	if not player then return end
 
@@ -317,15 +317,15 @@ end
 ---@param event EventData.on_gui_closed
 local function on_gui_closed(event)
 	local element = event.element
-	if not element or element.name ~= COMBINATOR_NAME then return end
+	if not element or element.name ~= OLD_COMBINATOR_NAME then return end
 	local entity = event.entity or element.tags.unit_number and storage.to_comb[element.tags.unit_number]
 	local is_ghost = entity and entity.name == "entity-ghost"
 	local player = game.get_player(event.player_index)
 	if not player then return end
 	local rootgui = player.gui.screen
 
-	if rootgui[COMBINATOR_NAME] then
-		rootgui[COMBINATOR_NAME].destroy()
+	if rootgui[OLD_COMBINATOR_NAME] then
+		rootgui[OLD_COMBINATOR_NAME].destroy()
 		if not is_ghost then
 			player.play_sound({ path = COMBINATOR_CLOSE_SOUND })
 		end
@@ -372,7 +372,7 @@ function gui_opened(comb, player)
 		{
 			type = "frame",
 			direction = "vertical",
-			name = COMBINATOR_NAME,
+			name = OLD_COMBINATOR_NAME,
 			children = {
 				--title bar
 				{
@@ -392,7 +392,7 @@ function gui_opened(comb, player)
 							mouse_button_filter = { "left" },
 							sprite = "utility/close",
 							hovered_sprite = "utility/close",
-							name = COMBINATOR_NAME,
+							name = OLD_COMBINATOR_NAME,
 							handler = handle_close,
 							tags = { id = comb.unit_number },
 						},
@@ -687,7 +687,7 @@ function gui_entity_destroyed(unit_number, silent)
 	for _, player in pairs(game.players) do
 		if not player or not player.valid then goto continue end
 		local screen = player.gui.screen
-		local window = screen[COMBINATOR_NAME]
+		local window = screen[OLD_COMBINATOR_NAME]
 		if window and window.tags.unit_number == unit_number then
 			window.destroy()
 			if not silent then
