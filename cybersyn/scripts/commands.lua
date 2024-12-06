@@ -84,13 +84,13 @@ local function check_single_stations_and_collect_data(report)
 				local op = c.get_control_behavior()
 				op = op and op.parameters.operation
 
-				if op == MODE_PRIMARY_IO or op == MODE_PRIMARY_IO_ACTIVE or op == MODE_PRIMARY_IO_FAILED_REQUEST then
+				if op == MODE_OLD_PRIMARY_IO or op == MODE_OLD_PRIMARY_IO_ACTIVE or op == MODE_OLD_PRIMARY_IO_FAILED_REQUEST then
 					if not comb_1 then comb_1 = c else report(ts, { "cybersyn-problems.double-station" }) end
-				elseif op == MODE_SECONDARY_IO then
+				elseif op == MODE_OLD_SECONDARY_IO then
 					if not comb_2 then comb_2 = c else report(ts, { "cybersyn-problems.double-station-control" }) end
-				elseif op == MODE_DEPOT then
+				elseif op == MODE_OLD_DEPOT then
 					if not depot then depot = c else report(ts, { "cybersyn-problems.double-depot" }) end
-				elseif op == MODE_REFUELER then
+				elseif op == MODE_OLD_REFUELER then
 					if not refuel then refuel = c else report(ts, { "cybersyn-problems.double-refueler" }) end
 				end
 			end
@@ -100,13 +100,13 @@ local function check_single_stations_and_collect_data(report)
 			if depot and refuel then report(ts, { "cybersyn-problems.depot-and-refueler" }) end
 
 			if comb_1 then -- station mode takes precedence
-				station_types[ts.unit_number] = MODE_PRIMARY_IO
+				station_types[ts.unit_number] = MODE_OLD_PRIMARY_IO
 				station_names[ts.backer_name] = true
 			elseif depot then
-				station_types[ts.unit_number] = MODE_DEPOT
+				station_types[ts.unit_number] = MODE_OLD_DEPOT
 				depot_names[ts.backer_name] = true
 			elseif refuel then
-				station_types[ts.unit_number] = MODE_REFUELER
+				station_types[ts.unit_number] = MODE_OLD_REFUELER
 				refueler_names[ts.backer_name] = true
 			end
 		end
@@ -136,7 +136,7 @@ local function find_problems(report)
 			end
 
 			local type = types[ts.unit_number]
-			if type ~= MODE_DEPOT and depots[ts.backer_name] then
+			if type ~= MODE_OLD_DEPOT and depots[ts.backer_name] then
 				counting_report(ts, { "cybersyn-problems.name-overlap-with-depot" })
 			end
 
@@ -152,7 +152,7 @@ local function find_problems(report)
 			if not next(s.find_entities_filtered { name = "train-stop", area = combinator_search_area(c), limit = 1 }) then
 				local op = c.get_control_behavior()
 				op = op and op.parameters.operation
-				if op ~= MODE_WAGON then
+				if op ~= MODE_OLD_WAGON then
 					counting_report(c, { "cybersyn-problems.derelict-combinator" })
 				end
 			end

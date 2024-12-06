@@ -48,9 +48,9 @@ local migrations_table = {
 		local map_data = storage
 		for id, station in pairs(map_data.stations) do
 			local params = get_comb_params(station.entity_comb1)
-			if params.operation == MODE_PRIMARY_IO_FAILED_REQUEST then
+			if params.operation == MODE_OLD_PRIMARY_IO_FAILED_REQUEST then
 				station.display_state = 1
-			elseif params.operation == MODE_PRIMARY_IO_ACTIVE then
+			elseif params.operation == MODE_OLD_PRIMARY_IO_ACTIVE then
 				station.display_state = 2
 			else
 				station.display_state = 0
