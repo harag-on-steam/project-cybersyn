@@ -51,14 +51,14 @@ function manager_gui.on_lua_shortcut(e)
 		if e.element then
 			if e.element.name == "manager_window" then
 				manager.wrapper(e, manager.handle.manager_toggle)
-			elseif e.element.name == COMBINATOR_NAME and e.name == defines.events.on_gui_closed then
+			elseif e.element.name == OLD_COMBINATOR_NAME and e.name == defines.events.on_gui_closed then
 				-- With the manager enabled, this handler overwrites the combinator's
 				-- on_gui_close handler. Copy the logic to close the combinator's GUI here
 				-- as well.
 				local player = game.get_player(e.player_index)
 				if not player then return end
-				if player.gui.screen[COMBINATOR_NAME] then
-					player.gui.screen[COMBINATOR_NAME].destroy()
+				if player.gui.screen[OLD_COMBINATOR_NAME] then
+					player.gui.screen[OLD_COMBINATOR_NAME].destroy()
 				end
 			end
 		else
@@ -164,13 +164,13 @@ function manager_gui.on_migration()
 	if not storage.manager then
 		manager_gui.on_init()
 	end
-	
+
 	for i, p in pairs(game.players) do
 		if storage.manager.players[i] == nil then
 			create_player(i)
 		end
 	end
-	
+
 	for i, v in pairs(storage.manager.players) do
 		manager_gui.reset_player(i, v)
 	end

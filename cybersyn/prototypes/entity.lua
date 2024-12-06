@@ -1,7 +1,7 @@
 --By Mami
-combinator_entity = flib.copy_prototype(data.raw["arithmetic-combinator"]["arithmetic-combinator"], COMBINATOR_NAME)
-combinator_entity.icon = "__cybersyn__/graphics/icons/cybernetic-combinator.png"
-combinator_entity.radius_visualisation_specification = {
+old_combinator_entity = flib.copy_prototype(data.raw["arithmetic-combinator"]["arithmetic-combinator"], OLD_COMBINATOR_NAME)
+old_combinator_entity.icon = "__cybersyn__/graphics/icons/cybernetic-combinator.png"
+old_combinator_entity.radius_visualisation_specification = {
 	sprite = {
 		filename = "__cybersyn__/graphics/icons/area-of-effect.png",
 		tint = {r = 1, g = 1, b = 0, a = .5},
@@ -11,15 +11,24 @@ combinator_entity.radius_visualisation_specification = {
 	--offset = {0, .5},
 	distance = 1.5,
 }
+old_combinator_entity.active_energy_usage = "10kW"
+
+combinator_entity = flib.copy_prototype(data.raw["decider-combinator"]["decider-combinator"], COMBINATOR_NAME)
+combinator_entity.icon = "__cybersyn__/graphics/icons/cybernetic-combinator.png"
+combinator_entity.radius_visualisation_specification = old_combinator_entity.radius_visualisation_specification
 combinator_entity.active_energy_usage = "10kW"
+combinator_entity.minable = old_combinator_entity.minable
+combinator_entity.placeable_by = { item = old_combinator_entity.name, count = 1 }
 
 if mods["nullius"] then
+	old_combinator_entity.localised_name = { "entity-name.cybersyn-combinator" }
 	combinator_entity.localised_name = { "entity-name.cybersyn-combinator" }
 end
 
 for _,dir in pairs({"north","east","south","west"}) do
 	-- same sprites, just with some parts painted red
-	combinator_entity.sprites[dir].layers[1].filename = "__cybersyn__/graphics/combinator/cybernetic-combinator.png"
+	old_combinator_entity.sprites[dir].layers[1].filename = "__cybersyn__/graphics/combinator/cybernetic-combinator.png"
+	combinator_entity.sprites[dir].layers[1].tint = { 1.0, 0.5, 0.5 }
 end
 
 local function create_combinator_display_direction(filename, x, y, shift)
@@ -44,14 +53,14 @@ end
 local CYBERSYN_DISPLAYS = "__cybersyn__/graphics/combinator/cybernetic-displays.png"
 local FACTORIO_DISPLAYS = "__base__/graphics/entity/combinator/combinator-displays.png"
 
-combinator_entity.plus_symbol_sprites        = create_combinator_display(CYBERSYN_DISPLAYS, 0, 0)
-combinator_entity.minus_symbol_sprites       = create_combinator_display(CYBERSYN_DISPLAYS, 1, 0)
-combinator_entity.divide_symbol_sprites      = create_combinator_display(CYBERSYN_DISPLAYS, 2, 0)
-combinator_entity.modulo_symbol_sprites      = create_combinator_display(CYBERSYN_DISPLAYS, 3, 0)
-combinator_entity.power_symbol_sprites       = create_combinator_display(CYBERSYN_DISPLAYS, 0, 1)
-combinator_entity.left_shift_symbol_sprites  = create_combinator_display(FACTORIO_DISPLAYS, 1, 1) -- green '>'
-combinator_entity.right_shift_symbol_sprites = create_combinator_display(CYBERSYN_DISPLAYS, 2, 1)
-combinator_entity.multiply_symbol_sprites    = combinator_entity.divide_symbol_sprites
+old_combinator_entity.plus_symbol_sprites        = create_combinator_display(CYBERSYN_DISPLAYS, 0, 0)
+old_combinator_entity.minus_symbol_sprites       = create_combinator_display(CYBERSYN_DISPLAYS, 1, 0)
+old_combinator_entity.divide_symbol_sprites      = create_combinator_display(CYBERSYN_DISPLAYS, 2, 0)
+old_combinator_entity.modulo_symbol_sprites      = create_combinator_display(CYBERSYN_DISPLAYS, 3, 0)
+old_combinator_entity.power_symbol_sprites       = create_combinator_display(CYBERSYN_DISPLAYS, 0, 1)
+old_combinator_entity.left_shift_symbol_sprites  = create_combinator_display(FACTORIO_DISPLAYS, 1, 1) -- green '>'
+old_combinator_entity.right_shift_symbol_sprites = create_combinator_display(CYBERSYN_DISPLAYS, 2, 1)
+old_combinator_entity.multiply_symbol_sprites    = old_combinator_entity.divide_symbol_sprites
 
 
 combinator_out_entity = flib.copy_prototype(data.raw["constant-combinator"]["constant-combinator"], COMBINATOR_OUT_NAME) --[[@as data.ConstantCombinatorPrototype]]
