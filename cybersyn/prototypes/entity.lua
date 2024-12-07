@@ -12,6 +12,10 @@ old_combinator_entity.radius_visualisation_specification = {
 	distance = 1.5,
 }
 old_combinator_entity.active_energy_usage = "10kW"
+old_combinator_entity.fast_replace = true
+old_combinator_entity.fast_replaceable_group = "COMBINATOR_NAME"
+old_combinator_entity.placeable_by = { item = old_combinator_entity.name, count = 1 }
+-- old_combinator_entity.collision_mask = { layers = {} }
 
 combinator_entity = flib.copy_prototype(data.raw["decider-combinator"]["decider-combinator"], COMBINATOR_NAME)
 combinator_entity.icon = "__cybersyn__/graphics/icons/cybernetic-combinator.png"
@@ -19,6 +23,8 @@ combinator_entity.radius_visualisation_specification = old_combinator_entity.rad
 combinator_entity.active_energy_usage = "10kW"
 combinator_entity.minable = old_combinator_entity.minable
 combinator_entity.placeable_by = { item = old_combinator_entity.name, count = 1 }
+combinator_entity.fast_replace = true
+combinator_entity.fast_replaceable_group = "COMBINATOR_NAME"
 
 if mods["nullius"] then
 	old_combinator_entity.localised_name = { "entity-name.cybersyn-combinator" }

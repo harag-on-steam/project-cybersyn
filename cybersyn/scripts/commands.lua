@@ -183,3 +183,10 @@ commands.add_command("cybersyn-find-problems", { "cybersyn-messages.find-problem
 	function() find_problems(report_print) end)
 commands.add_command("cybersyn-fix-priorities", { "cybersyn-messages.fix-priorities-command-help" },
 	fix_priorities_command)
+commands.add_command("comb2", "dev",
+	function(command)
+		if not command.player_index then return end
+		local selected = game.players[command.player_index].selected
+		if not selected or selected.name ~= "cybersyn-combinator" then return end
+		replace_with_combinator_v2(selected)
+	end)
