@@ -1,24 +1,40 @@
-local OLD_MODE_MAPPING = {
+local OLD_TO_NEW_MODE_MAPPING = {
 	["/"]  = "<", -- PRIMARY_IO
 	["%"]  = ">", -- SECONDARY_IO
 	["+"]  = "≤", -- DEPOT
 	["-"]  = "≥", -- WAGON
 	[">>"] = "≠", -- REFUELER
-	-- everything else is mapped to DEFAULT_PRIMARY_IO
+	-- if input value is already mapped
+	["<"]  = "<", -- PRIMARY_IO
+	[">"]  = ">", -- SECONDARY_IO
+	["≤"]  = "≤", -- DEPOT
+	["≥"]  = "≥", -- WAGON
+	["≠"]  = "≠", -- REFUELER
+	-- everything else is mapped to MODE_PRIMARY_IO
 }
 
-local DEFAULT_PRIMARY_IO = "<" -- PRIMARY_IO
-local DEFAULT_NETWORK = { name = "signal-A", type = "virtual" }
-local DEFAULT_SETTINGS = 0 -- allow_list_on, everything else off
-
-local DISABLE_INPUTS = { green = false, red = false }
-local ALWAYS_TRUE = {
-	compare_type = "or",
-	comparator = "=",
-	-- no signals, undefined == undefined is true in this context
-	first_signal_networks = DISABLE_INPUTS,
-	second_signal_networks = DISABLE_INPUTS,
+local NEW_TO_OLD_MODE_MAPPING = {
+	["<"]  = "/",  -- PRIMARY_IO
+	[">"]  = "%",  -- SECONDARY_IO
+	["≤"]  = "+",  -- DEPOT
+	["≥"]  = "-",  -- WAGON
+	["≠"]  = ">>", -- REFUELER
+	-- if input value is already mapped
+	["/"]  = "/",  -- PRIMARY_IO
+	["%"]  = "%",  -- SECONDARY_IO
+	["+"]  = "+",  -- DEPOT
+	["-"]  = "-",  -- WAGON
+	[">>"] = ">>", -- REFUELER
+	-- everything else is mapped to MODE_PRIMARY_IO
 }
+
+function map_old_mode_to_new_mode(mode)
+	return OLD_TO_NEW_MODE_MAPPING[mode] or MODE_PRIMARY_IO
+end
+
+function map_new_mode_to_old_mode(mode)
+	return NEW_TO_OLD_MODE_MAPPING[mode] or MODE_PRIMARY_IO
+end
 
 ---@param constant_combinator LuaEntity?
 ---@return LogisticFilter[]?
@@ -39,11 +55,13 @@ end
 
 ---Replaces a v1 arithmetic Cybersyn combinator with a v2 decider Cybersyn combinator.
 ---All settings and current output signals are copied over and the hidden output combinator is destroyed.
----Does not perform any cleanup in map_data.
----Returns the new combinator entity and the unit_numbers of the old combinator and its hidden output combinator.
+---Lookup tables in map_data and corresponding station, depot or refueler are updated with the v2 entity.
 ---@param v1 LuaEntity
----@return LuaEntity, uint32, uint32?
+---@return LuaEntity comb the new combinator
+---@return uint32 comb_type 0: not part of a station, 1: station comb1, 2: station comb2, 3: depot, 4: refueler
+---@return Station|Depot|Refueler|nil station the station this combinator is a part of or nil if it is not
 function replace_with_combinator_v2(v1)
+	local map_data = storage
 	local surface = v1.surface
 
 	local v1_unit_number = v1.unit_number
@@ -53,8 +71,10 @@ function replace_with_combinator_v2(v1)
 	local v1_output_unit_number = v1_output and v1_output.unit_number
 	local v1_output_signals = get_constant_signals(v1_output)
 
-	assert(v1_unit_number)
-	assert(v1_params)
+	assert(v1_unit_number, "cybersyn: invalid combinator")
+	assert(v1_params, "cybersyn: invalid combinator")
+
+	local comb_type, _, station, stop = comb_to_internal_entity(storage, v1, v1_unit_number)
 
 	local v2 = surface.create_entity {
 		name = "cybersyn-combinator-2",
@@ -68,19 +88,24 @@ function replace_with_combinator_v2(v1)
 		quality = v1.quality,
 		force = v1.force, -- required for fast_replace
 	}
-	assert(v2, "script-based combinator update cannot fail")
+	assert(v2, "cybersyn: combinator update failed")
+	local v2_unit_number = v2.unit_number
+	assert(v2_unit_number, "cybersyn: combinator update failed")
 
 	if v1_output then
 		v1_output.destroy()
 	end
+	if v1_output_unit_number then
+		map_data.to_output[v1_output_unit_number] = nil
+	end
 
 	local cybersyn_settings = {
 		compare_type = "or",
-		comparator = OLD_MODE_MAPPING[v1_params.operation] or DEFAULT_PRIMARY_IO,
-		constant = v1_params.second_constant or DEFAULT_SETTINGS,
-		first_signal = v1_params.first_signal or DEFAULT_NETWORK,
-		first_signal_networks = DISABLE_INPUTS,
-		second_signal_networks = DISABLE_INPUTS,
+		comparator = map_old_mode_to_new_mode(v1_params.operation),
+		constant = v1_params.second_constant or 0,
+		first_signal = v1_params.first_signal or NETWORK_SIGNAL_DEFAULT,
+		first_signal_networks = CONDITION_INPUTS_DISABLED,
+		second_signal_networks = CONDITION_INPUTS_DISABLED,
 	}
 
 	local outputs = {}
@@ -103,10 +128,33 @@ function replace_with_combinator_v2(v1)
 	v2_behavior.parameters = {
 		conditions = {
 			cybersyn_settings,
-			ALWAYS_TRUE,
+			CONDITION_ALWAYS_TRUE,
 		},
 		outputs = outputs
 	}
 
-	return v2, v1_unit_number, v1_output_unit_number
+	if map_data.to_comb[v1_unit_number] then
+		map_data.to_comb[v2_unit_number] = v2
+		map_data.to_comb_params[v2_unit_number] = v2_behavior.get_condition(1)
+
+		map_data.to_comb[v1_unit_number] = nil
+		map_data.to_comb_params[v1_unit_number] = nil
+	end
+
+	if station then
+		map_data.to_stop[v2_unit_number] = stop
+		map_data.to_stop[v1_unit_number] = nil
+
+		if comb_type == 1 then     --station comb1
+			station.entity_comb1 = v2
+		elseif comb_type == 2 then --station comb2
+			station.entity_comb2 = v2
+		elseif comb_type == 3 then --depot
+			station.entity_comb  = v2
+		elseif comb_type == 4 then --refueler
+			station.entity_comb  = v2
+		end
+	end
+
+	return v2, comb_type, station
 end
