@@ -1,9 +1,9 @@
 local OLD_MODE_MAPPING = {
-	["/"]  = "<",  -- PRIMARY_IO
-	["%"]  = ">",  -- SECONDARY_IO
-	["+"]  = "<=", -- DEPOT
-	["-"]  = ">=", -- WAGON
-	[">>"] = "!=", -- REFUELER
+	["/"]  = "<", -- PRIMARY_IO
+	["%"]  = ">", -- SECONDARY_IO
+	["+"]  = "≤", -- DEPOT
+	["-"]  = "≥", -- WAGON
+	[">>"] = "≠", -- REFUELER
 	-- everything else is mapped to DEFAULT_PRIMARY_IO
 }
 
