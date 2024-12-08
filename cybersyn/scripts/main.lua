@@ -199,20 +199,21 @@ end
 
 ---@param map_data MapData
 ---@param stop LuaEntity
+---@param comb_comparator string
 ---@param comb_operation string
 ---@param comb_forbidden LuaEntity?
-local function search_for_station_combinator(map_data, stop, comb_operation, comb_forbidden)
+local function search_for_station_combinator(map_data, stop, comb_comparator, comb_operation, comb_forbidden)
 	local pos_x = stop.position.x
 	local pos_y = stop.position.y
 	local search_area = {
 		{ pos_x - 2, pos_y - 2 },
 		{ pos_x + 2, pos_y + 2 },
 	}
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = NEW_AND_OLD_COMBINATOR })
 	for _, entity in pairs(entities) do
 		if entity.valid and entity ~= comb_forbidden and map_data.to_stop[entity.unit_number] == stop then
 			local param = get_comb_params(entity)
-			if param.operation == comb_operation then
+			if param.comparator == comb_comparator or param.operation == comb_operation then
 				return entity
 			end
 		end
@@ -224,11 +225,25 @@ end
 ---@param tags Tags?
 ---@return string? op
 function combinator_build_init(map_data, comb, tags)
-	local control = get_comb_control(comb)
-	local params = control.parameters
-	local op = params.operation
+	local params, control = get_comb_params(comb)
+	local op = params.comparator or params.operation--[[@as string]]
 
-	if op == MODE_OLD_DEFAULT then
+	 -- completely new combinators still have their input networks enabled
+	if op == MODE_PRIMARY_IO and (not params.first_signal_networks or params.first_signal_networks.green) then
+		control.parameters = {
+			conditions = {
+				{
+					comparator = MODE_PRIMARY_IO,
+					first_signal = NETWORK_SIGNAL_DEFAULT,
+					second_constant = 0,
+					first_signal_networks = CONDITION_INPUTS_DISABLED,
+					second_signal_networks = CONDITION_INPUTS_DISABLED,
+				},
+				CONDITION_ALWAYS_TRUE,
+			},
+			outputs = {}
+		}
+	elseif op == MODE_OLD_DEFAULT then
 		op = MODE_OLD_PRIMARY_IO
 		params.operation = op
 		params.first_signal = NETWORK_SIGNAL_DEFAULT
@@ -290,27 +305,32 @@ local function on_combinator_built(map_data, comb, tags)
 		end
 	end
 
-	local out = comb.surface.create_entity({
-		name = COMBINATOR_OUT_NAME,
-		position = comb.position,
-		force = comb.force,
-	})
-	assert(out, "cybersyn: could not spawn combinator controller")
-	local comb_red = comb.get_wire_connector(defines.wire_connector_id.combinator_output_red, true)
-	local out_red = out.get_wire_connector(defines.wire_connector_id.circuit_red, true)
-	out_red.connect_to(comb_red, false, defines.wire_origin.script)
+	local out = nil
+	if comb.name == OLD_COMBINATOR_NAME then
+		out = comb.surface.create_entity({
+			name = COMBINATOR_OUT_NAME,
+			position = comb.position,
+			force = comb.force,
+		})
+		assert(out, "cybersyn: could not spawn combinator controller")
+		local comb_red = comb.get_wire_connector(defines.wire_connector_id.combinator_output_red, true)
+		local out_red = out.get_wire_connector(defines.wire_connector_id.circuit_red, true)
+		out_red.connect_to(comb_red, false, defines.wire_origin.script)
 
-	local comb_green = comb.get_wire_connector(defines.wire_connector_id.combinator_output_green, true)
-	local out_green = out.get_wire_connector(defines.wire_connector_id.circuit_green, true)
-	out_green.connect_to(comb_green, false, defines.wire_origin.script)
+		local comb_green = comb.get_wire_connector(defines.wire_connector_id.combinator_output_green, true)
+		local out_green = out.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+		out_green.connect_to(comb_green, false, defines.wire_origin.script)
+	end
 
 	local op = combinator_build_init(map_data, comb, tags)
 
 	local unit_number = comb.unit_number --[[@as uint]]
-	map_data.to_output[unit_number] = out
+	if out then
+		map_data.to_output[unit_number] = out
+	end
 	map_data.to_stop[unit_number] = stop
 
-	if op == MODE_OLD_WAGON then
+	if op == MODE_WAGON or op == MODE_OLD_WAGON then
 		if rail then
 			update_stop_from_rail(map_data, rail, nil, true)
 		end
@@ -319,23 +339,23 @@ local function on_combinator_built(map_data, comb, tags)
 		local station = map_data.stations[id]
 		local depot = map_data.depots[id]
 		local refueler = map_data.refuelers[id]
-		if op == MODE_OLD_DEPOT then
+		if op == MODE_DEPOT or op == MODE_OLD_DEPOT then
 			if refueler then
 				on_refueler_broken(map_data, id, refueler)
 			end
 			if not station and not depot then
 				on_depot_built(map_data, stop, comb)
 			end
-		elseif op == MODE_OLD_REFUELER then
+		elseif op == MODE_REFUELER or op == MODE_OLD_REFUELER then
 			if not station and not depot and not refueler then
 				on_refueler_built(map_data, stop, comb)
 			end
-		elseif op == MODE_OLD_SECONDARY_IO then
+		elseif op == MODE_SECONDARY_IO or op == MODE_OLD_SECONDARY_IO then
 			if station and not station.entity_comb2 then
 				station.entity_comb2 = comb
 				queue_station_for_combinator_update(map_data, id)
 			end
-		elseif op == MODE_OLD_PRIMARY_IO then
+		elseif op == MODE_PRIMARY_IO or op == MODE_OLD_PRIMARY_IO then
 			if refueler then
 				on_refueler_broken(map_data, id, refueler)
 			end
@@ -343,7 +363,7 @@ local function on_combinator_built(map_data, comb, tags)
 				on_depot_broken(map_data, id, depot)
 			end
 			if not station then
-				local comb2 = search_for_station_combinator(map_data, stop, MODE_OLD_SECONDARY_IO, comb)
+				local comb2 = search_for_station_combinator(map_data, stop, MODE_SECONDARY_IO, MODE_OLD_SECONDARY_IO, comb)
 				on_station_built(map_data, stop, comb, comb2)
 			end
 		end
@@ -369,7 +389,7 @@ end
 --Returns 3 if `comb` defines a depot.
 --Returns 4 if `comb` defines a refueler.
 --Returns 0 if `comb` is not a core component of any entity.
-local function comb_to_internal_entity(map_data, comb, unit_number)
+function comb_to_internal_entity(map_data, comb, unit_number)
 	local stop = map_data.to_stop[unit_number]
 	if stop and stop.valid then
 		local id = stop.unit_number --[[@as uint]]
@@ -430,7 +450,7 @@ function on_combinator_broken(map_data, comb, skip_gui_events)
 		on_stop_built_or_updated(map_data, stop --[[@as LuaEntity]], comb)
 	elseif type == 2 then
 		local station = entity --[[@as Station]]
-		station.entity_comb2 = search_for_station_combinator(map_data, stop --[[@as LuaEntity]], MODE_OLD_SECONDARY_IO, comb)
+		station.entity_comb2 = search_for_station_combinator(map_data, stop --[[@as LuaEntity]], MODE_SECONDARY_IO, MODE_OLD_SECONDARY_IO, comb)
 		queue_station_for_combinator_update(map_data, id)
 	elseif type == 3 then
 		on_depot_broken(map_data, id, entity --[[@as Depot]])
@@ -469,8 +489,7 @@ end
 ---@param reset_display boolean?
 function combinator_update(map_data, comb, reset_display)
 	local unit_number = comb.unit_number --[[@as uint]]
-	local control = get_comb_control(comb)
-	local params = control.parameters
+	local params, control = get_comb_params(comb)
 	local old_params = map_data.to_comb_params[unit_number]
 	local has_changed = false
 	local type, id, entity = nil, 0, nil
@@ -481,7 +500,7 @@ function combinator_update(map_data, comb, reset_display)
 		game.print("cybersyn combinator lacking internal data @ " .. comb.gps_tag)
 	end
 
-	local op = params.operation
+	local op = params.comparator or params.operation --[[@as string]]
 	--handle the combinator's display, if it is part of a station
 	if op == MODE_OLD_PRIMARY_IO or op == MODE_OLD_PRIMARY_IO_ACTIVE or op == MODE_OLD_PRIMARY_IO_FAILED_REQUEST then
 		--the follow is only present to fix combinators that have been copy-pasted by blueprint with the wrong operation
@@ -505,12 +524,15 @@ function combinator_update(map_data, comb, reset_display)
 		end
 		--make sure only MODE_PRIMARY_IO gets stored on map_data.to_comb_params
 		params.operation = MODE_OLD_PRIMARY_IO
+		op = MODE_OLD_PRIMARY_IO
 		if set_control_params then
 			control.parameters = params
 		end
 	end
 
-	if old_params ~= nil and params.operation ~= old_params.operation then
+	-- TODO handle reset_display for the new combinator
+
+	if old_params ~= nil and op ~= (old_params.comparator or old_params.operation) then
 		--NOTE: This is rather dangerous, we may need to actually implement operation changing
 		if is_ghost then
 			on_combinator_ghost_broken(map_data, comb, true)
@@ -553,7 +575,7 @@ function combinator_update(map_data, comb, reset_display)
 		end
 	end
 
-	if old_params ~= nil and params.second_constant ~= old_params.second_constant then
+	if old_params ~= nil and (params.constant or params.second_constant) ~= (old_params.constant or old_params.second_constant) then
 		has_changed = true
 
 		if type == nil then
@@ -597,7 +619,7 @@ function on_stop_built_or_updated(map_data, stop, comb_forbidden)
 	local comb1 = nil
 	local depot_comb = nil
 	local refueler_comb = nil
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = NEW_AND_OLD_COMBINATOR })
 	for _, entity in pairs(entities) do
 		if entity.valid and entity ~= comb_forbidden then
 			local id = entity.unit_number --[[@as uint]]
@@ -605,14 +627,14 @@ function on_stop_built_or_updated(map_data, stop, comb_forbidden)
 			if adj_stop == nil or adj_stop == stop then
 				map_data.to_stop[id] = stop
 				local param = get_comb_params(entity)
-				local op = param.operation
-				if op == MODE_OLD_PRIMARY_IO then
+				local op = param.comparator or param.operation
+				if op == MODE_PRIMARY_IO or op == MODE_OLD_PRIMARY_IO then
 					comb1 = entity
-				elseif op == MODE_OLD_SECONDARY_IO then
+				elseif op == MODE_SECONDARY_IO or op == MODE_OLD_SECONDARY_IO then
 					comb2 = entity
-				elseif op == MODE_OLD_DEPOT then
+				elseif op == MODE_DEPOT or op == MODE_OLD_DEPOT then
 					depot_comb = entity
-				elseif op == MODE_OLD_REFUELER then
+				elseif op == MODE_REFUELER or op == MODE_OLD_REFUELER then
 					refueler_comb = entity
 				end
 			end
@@ -636,7 +658,7 @@ local function on_stop_broken(map_data, stop)
 		{ pos_x - 2, pos_y - 2 },
 		{ pos_x + 2, pos_y + 2 },
 	}
-	local entities = stop.surface.find_entities_filtered({ area = search_area, name = OLD_COMBINATOR_NAME })
+	local entities = stop.surface.find_entities_filtered({ area = search_area, name = NEW_AND_OLD_COMBINATOR })
 	for _, entity in pairs(entities) do
 		if entity.valid and map_data.to_stop[entity.unit_number] == stop then
 			map_data.to_stop[entity.unit_number] = nil
@@ -698,7 +720,7 @@ end
 ---@param map_data MapData
 local function find_and_add_all_stations_from_nothing(map_data)
 	for _, surface in pairs(game.surfaces) do
-		local entities = surface.find_entities_filtered({ name = OLD_COMBINATOR_NAME })
+		local entities = surface.find_entities_filtered({ name = NEW_AND_OLD_COMBINATOR })
 		for k, comb in pairs(entities) do
 			if comb.valid then
 				on_combinator_built(map_data, comb)
@@ -714,9 +736,9 @@ local function on_built(event)
 
 	if entity.name == "train-stop" then
 		on_stop_built_or_updated(storage, entity)
-	elseif entity.name == OLD_COMBINATOR_NAME then
+	elseif entity.name == COMBINATOR_NAME or entity.name == OLD_COMBINATOR_NAME then
 		on_combinator_built(storage, entity, event.tags)
-	elseif entity.name == "entity-ghost" and entity.ghost_name == OLD_COMBINATOR_NAME then
+	elseif entity.name == "entity-ghost" and (entity.ghost_name == COMBINATOR_NAME or entity.ghost_name == OLD_COMBINATOR_NAME) then
 		on_combinator_ghost_built(storage, entity)
 	elseif entity.type == "inserter" then
 		update_stop_from_inserter(storage, entity)
@@ -735,9 +757,9 @@ local function on_broken(event)
 
 	if entity.name == "train-stop" then
 		on_stop_broken(storage, entity)
-	elseif entity.name == OLD_COMBINATOR_NAME then
+	elseif entity.name == COMBINATOR_NAME or entity.name == OLD_COMBINATOR_NAME then
 		on_combinator_broken(storage, entity)
-	elseif entity.name == "entity-ghost" and entity.ghost_name == OLD_COMBINATOR_NAME then
+	elseif entity.name == "entity-ghost" and (entity.ghost_name == COMBINATOR_NAME or entity.ghost_name == OLD_COMBINATOR_NAME) then
 		on_combinator_ghost_broken(storage, entity)
 	elseif entity.type == "inserter" then
 		update_stop_from_inserter(storage, entity, entity)
@@ -782,7 +804,7 @@ local function on_paste(event)
 	local entity = event.destination
 	if not entity or not entity.valid then return end
 
-	if entity.name == OLD_COMBINATOR_NAME then
+	if entity.name == COMBINATOR_NAME or entity.name == OLD_COMBINATOR_NAME then
 		combinator_update(storage, entity, true)
 	end
 end
@@ -930,6 +952,7 @@ local function setup_picker_dollies_compat()
 			remote.interfaces["PickerDollies"]["add_blacklist_name"]
 	if IS_PICKER_DOLLIES_PRESENT then
 		remote.call("PickerDollies", "add_blacklist_name", OLD_COMBINATOR_NAME)
+		remote.call("PickerDollies", "add_blacklist_name", COMBINATOR_NAME)
 		remote.call("PickerDollies", "add_blacklist_name", COMBINATOR_OUT_NAME)
 	end
 end
@@ -986,7 +1009,9 @@ end
 
 local filter_built = {
 	{ filter = "name", name = "train-stop" },
+	{ filter = "name", name = COMBINATOR_NAME },
 	{ filter = "name", name = OLD_COMBINATOR_NAME },
+	{ filter = "ghost", ghost_name = COMBINATOR_NAME },
 	{ filter = "ghost", ghost_name = OLD_COMBINATOR_NAME },
 	{ filter = "type", type = "inserter" },
 	{ filter = "type", type = "pump" },
@@ -996,8 +1021,10 @@ local filter_built = {
 }
 local filter_broken = {
 	{ filter = "name", name = "train-stop" },
+	{ filter = "name", name = COMBINATOR_NAME },
 	{ filter = "name", name = OLD_COMBINATOR_NAME },
-	{ filter = "ghost", name = OLD_COMBINATOR_NAME },
+	{ filter = "ghost", ghost_name = COMBINATOR_NAME },
+	{ filter = "ghost", ghost_name = OLD_COMBINATOR_NAME },
 	{ filter = "type", type = "inserter" },
 	{ filter = "type", type = "pump" },
 	{ filter = "type", type = "straight-rail" },

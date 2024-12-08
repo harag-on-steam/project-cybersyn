@@ -307,7 +307,7 @@ local function on_gui_opened(event)
 	local entity = event.entity
 	if not entity or not entity.valid then return end
 	local name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
-	if name ~= OLD_COMBINATOR_NAME then return end
+	if name ~= OLD_COMBINATOR_NAME and name ~= COMBINATOR_NAME then return end
 	local player = game.get_player(event.player_index)
 	if not player then return end
 

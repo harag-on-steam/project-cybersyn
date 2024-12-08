@@ -505,12 +505,15 @@ function get_comb_control(comb)
 	return comb.get_or_create_control_behavior() --[[@as LuaDeciderCombinatorControlBehavior|LuaArithmeticCombinatorControlBehavior]]
 end
 ---@param comb LuaEntity
+---@return DeciderCombinatorCondition|ArithmeticCombinatorParameters params
+---@return LuaDeciderCombinatorControlBehavior|LuaArithmeticCombinatorControlBehavior control
+---@return boolean is_v1
 function get_comb_params(comb)
 	local control = comb.get_or_create_control_behavior() --[[@as LuaDeciderCombinatorControlBehavior|LuaArithmeticCombinatorControlBehavior]]
 	if control.object_name == "LuaDeciderCombinatorControlBehavior" then
-		return control.get_condition(1)
+		return control.get_condition(1), control, false--[[@as DeciderCombinatorCondition]]
 	else
-		return control.parameters -- TODO remove with full migration
+		return control.parameters, control, true -- TODO remove with full migration
 	end
 end
 
@@ -539,7 +542,7 @@ function set_station_from_comb(station)
 	local params = get_comb_params(station.entity_comb1)
 	local signal = params.first_signal
 
-	local bits = params.second_constant or 0
+	local bits = params.constant or params.second_constant or 0
 	local is_pr_state = bit_extract(bits, 0, 2)
 	local allows_all_trains = bit_extract(bits, SETTING_DISABLE_ALLOW_LIST) > 0
 	local is_stack = bit_extract(bits, SETTING_IS_STACK) > 0
@@ -559,7 +562,7 @@ function set_station_from_comb(station)
 
 	if station.entity_comb2 and station.entity_comb2.valid then
 		local params2 = get_comb_params(station.entity_comb2)
-		local bits2 = params2.second_constant or 0
+		local bits2 = params2.constant or params2.second_constant or 0
 		enable_train_count = bit_extract(bits2, SETTING_ENABLE_TRAIN_COUNT) > 0
 		enable_manual_inventory = bit_extract(bits2, SETTING_ENABLE_MANUAL_INVENTORY) > 0
 	end
@@ -587,7 +590,7 @@ function set_train_from_comb(mod_settings, train, comb)
 	local signal = params.first_signal
 	local network_name = signal and signal.name or nil
 
-	local bits = params.second_constant or 0
+	local bits = params.constant or params.second_constant or 0
 	local disable_bypass = bit_extract(bits, SETTING_DISABLE_DEPOT_BYPASS) > 0
 	local use_any_depot = bit_extract(bits, SETTING_USE_ANY_DEPOT) > 0
 
@@ -632,7 +635,7 @@ end
 function set_refueler_from_comb(map_data, mod_settings, id, refueler)
 	--NOTE: this does nothing to update currently active deliveries
 	local params = get_comb_params(refueler.entity_comb)
-	local bits = params.second_constant or 0
+	local bits = params.constant or params.second_constant or 0
 	local signal = params.first_signal
 	local old_network = refueler.network_name
 	local old_network_mask = refueler.network_mask
@@ -712,14 +715,11 @@ end
 ---@param map_data MapData
 ---@param station Station
 function update_display(map_data, station)
-	if true then return end -- TODO can no longer show state via the operation; LuaRendering instead?
-
 	local comb = station.entity_comb1
 	if comb.valid then
-		local control = get_comb_control(comb)
-		local params = control.parameters
+		local params, control, is_v1 = get_comb_params(comb)
 		--NOTE: the following check can cause a bug where the display desyncs if the player changes the operation of the combinator and then changes it back before the mod can notice, however removing it causes a bug where the user's change is overwritten and ignored. Everything's bad we need an event to catch copy-paste by blueprint.
-		if params.operation == MODE_OLD_PRIMARY_IO or params.operation == MODE_OLD_PRIMARY_IO_ACTIVE or params.operation == MODE_OLD_PRIMARY_IO_FAILED_REQUEST then
+		if is_v1 and (params.operation == MODE_OLD_PRIMARY_IO or params.operation == MODE_OLD_PRIMARY_IO_ACTIVE or params.operation == MODE_OLD_PRIMARY_IO_FAILED_REQUEST) then
 			if station.display_state == 0 then
 				params.operation = MODE_OLD_PRIMARY_IO
 			elseif station.display_state % 2 == 1 then
@@ -754,7 +754,7 @@ function get_comb_gui_settings(comb)
 
 	local selected_index = MODE_TO_SELECTED_INDEX[op]
 	local switch_state = "none"
-	local bits = params.second_constant or 0
+	local bits = params.constant or params.second_constant or 0
 	local is_pr_state = bit_extract(bits, 0, 2)
 	if is_pr_state == 0 then
 		switch_state = "none"
@@ -769,40 +769,59 @@ end
 ---@param comb LuaEntity
 ---@param is_pr_state 0|1|2
 function set_comb_is_pr_state(comb, is_pr_state)
-	local control = get_comb_control(comb)
-	local param = control.get_condition(1)
-	local bits = param.second_constant or 0
+	local param, control, is_v1 = get_comb_params(comb)
 
-	param.second_constant = bit_replace(bits, is_pr_state, 0, 2)
-	control.set_condition(1, param)
+	if is_v1 then -- old combinator
+		local bits = param.second_constant or 0
+		param.second_constant = bit_replace(bits, is_pr_state, 0, 2)
+		control.parameters = param
+	else
+		local bits = param.constant or 0
+		param.constant = bit_replace(bits, is_pr_state, 0, 2)
+		control.set_condition(1, param)
+	end
 end
 ---@param comb LuaEntity
 ---@param n int
 ---@param bit boolean
 function set_comb_setting(comb, n, bit)
-	local control = get_comb_control(comb)
-	local param = control.get_condition(1)
-	local bits = param.second_constant or 0
+	local param, control, is_v1 = get_comb_params(comb)
 
-	param.second_constant = bit_replace(bits, bit and 1 or 0, n)
-	control.set_condition(1, param)
+	if is_v1 then -- old combinator
+		local bits = param.second_constant or 0
+		param.second_constant = bit_replace(bits, bit and 1 or 0, n)
+		control.parameters = param
+	else
+		local bits = param.constant or 0
+		param.constant = bit_replace(bits, bit and 1 or 0, n)
+		control.set_condition(1, param)
+	end
 end
 ---@param comb LuaEntity
 ---@param signal SignalID?
 function set_comb_network_name(comb, signal)
-	local control = get_comb_control(comb)
-	local param = control.get_condition(1)
+	local param, control, is_v1 = get_comb_params(comb)
 
-	param.first_signal = signal
-	control.set_condition(1, param)
+	if is_v1 then -- old combinator
+		param.first_signal = signal
+		control.parameters = param
+	else
+		param.first_signal = signal
+		control.set_condition(1, param)
+	end
 end
 ---@param comb LuaEntity
 ---@param op string
 function set_comb_operation(comb, op)
-	local control = get_comb_control(comb)
-	local params = control.get_condition(1)
-	params.comparator = op
-	control.set_condition(1, param)
+	local param, control, is_v1 = get_comb_params(comb)
+
+	if is_v1 then -- old combinator
+		param.operation = op
+		control.parameters = param
+	else
+		param.comparator = map_old_mode_to_new_mode(op)
+		control.set_condition(1, param)
+	end
 end
 
 --- Set the output signals of a Cybersyn combinator.

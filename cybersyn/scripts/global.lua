@@ -3,7 +3,7 @@
 ---@field public total_ticks uint
 ---@field public layout_top_id uint
 ---@field public to_comb {[uint]: LuaEntity}
----@field public to_comb_params {[uint]: ArithmeticCombinatorParameters}
+---@field public to_comb_params {[uint]: ArithmeticCombinatorParameters|DeciderCombinatorCondition}
 ---@field public to_output {[uint]: LuaEntity}
 ---@field public to_stop {[uint]: LuaEntity}
 ---@field public stations {[uint]: Station}
@@ -68,11 +68,17 @@
 ---@field public constant int32
 ---@field public signal SignalFilter
 
+---@class DeciderCombinatorSignalNetworks
+---@field public green boolean?
+---@field public red boolean?
+
 ---@class DeciderCombinatorCondition -- The Factorio Lua API only defines this as 'table'
 ---@field public comparator "="|">"|"<"|"≥"|">="|"≤"|"<="|"≠"|"!="
 ---@field public first_signal SignalFilter?
+---@field public first_signal_networks DeciderCombinatorSignalNetworks?
+---@field public constant int32?
 ---@field public second_signal SignalFilter?
----@field public second_constant int32?
+---@field public second_signal_networks DeciderCombinatorSignalNetworks?
 
 ---@class Depot
 ---@field public entity_stop LuaEntity

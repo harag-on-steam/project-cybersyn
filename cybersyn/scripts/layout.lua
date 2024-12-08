@@ -420,7 +420,7 @@ function unset_wagon_combs(map_data, stop)
 	end
 end
 
-local type_filter = { "inserter", "pump", "arithmetic-combinator", "loader-1x1", "loader" }
+local type_filter = { "inserter", "pump", "arithmetic-combinator", "decider-combinator", "loader-1x1", "loader" }
 ---@param map_data MapData
 ---@param stop Station|Refueler
 ---@param is_station_or_refueler boolean
@@ -590,9 +590,9 @@ function reset_stop_layout(map_data, stop, is_station_or_refueler, forbidden_ent
 								supports_fluid = true
 							end
 						end
-					elseif entity.name == OLD_COMBINATOR_NAME then
+					elseif entity.name == COMBINATOR_NAME or entity.name == OLD_COMBINATOR_NAME then
 						local param = map_data.to_comb_params[entity.unit_number]
-						if param.operation == MODE_OLD_WAGON then
+						if param.comparator == MODE_WAGON or param.operation == MODE_OLD_WAGON then
 							local pos = entity.position
 							local is_there
 							if is_ver then

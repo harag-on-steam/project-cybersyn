@@ -10,6 +10,7 @@ LOCKED_SLOTS = "cybersyn-locked-slots"
 
 OLD_COMBINATOR_NAME = "cybersyn-combinator"
 COMBINATOR_NAME = "cybersyn-combinator-2"
+NEW_AND_OLD_COMBINATOR = {COMBINATOR_NAME, OLD_COMBINATOR_NAME}
 COMBINATOR_OUT_NAME = "cybersyn-combinator-output"
 COMBINATOR_CLOSE_SOUND = "entity-close/cybersyn-combinator"
 ALERT_SOUND = "utility/console_message"
@@ -39,8 +40,17 @@ SETTING_ENABLE_CIRCUIT_CONDITION = 8
 SETTING_ENABLE_TRAIN_COUNT = 9
 SETTING_ENABLE_MANUAL_INVENTORY = 10
 
-NETWORK_SIGNAL_DEFAULT = { name = "signal-A", type = "virtual" }
-NETWORK_SIGNAL_GUI_DEFAULT = { name = "signal-each", type = "virtual" }
+CONDITION_INPUTS_DISABLED = { green = false, red = false }
+CONDITION_ALWAYS_TRUE = {
+	compare_type = "or",
+	comparator = "=",
+	-- no signals, undefined == undefined is true in this context
+	first_signal_networks = CONDITION_INPUTS_DISABLED,
+	second_signal_networks = CONDITION_INPUTS_DISABLED,
+}
+
+NETWORK_SIGNAL_DEFAULT = { name = "signal-A", type = "virtual"}
+NETWORK_SIGNAL_GUI_DEFAULT = {name = "signal-each", type = "virtual"}
 NETWORK_ANYTHING = "signal-anything"
 NETWORK_EACH = "signal-each"
 INACTIVITY_TIME = 100
