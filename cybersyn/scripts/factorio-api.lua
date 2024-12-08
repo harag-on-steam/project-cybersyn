@@ -502,11 +502,31 @@ end
 ---@param comb LuaEntity
 function get_comb_control(comb)
 	--NOTE: using this as opposed to get_comb_params gives you R/W access
-	return comb.get_or_create_control_behavior() --[[@as LuaArithmeticCombinatorControlBehavior]]
+	return comb.get_or_create_control_behavior() --[[@as LuaDeciderCombinatorControlBehavior|LuaArithmeticCombinatorControlBehavior]]
 end
 ---@param comb LuaEntity
 function get_comb_params(comb)
-	return comb.get_or_create_control_behavior().parameters --[[@as ArithmeticCombinatorParameters]]
+	local control = comb.get_or_create_control_behavior() --[[@as LuaDeciderCombinatorControlBehavior|LuaArithmeticCombinatorControlBehavior]]
+	if control.object_name == "LuaDeciderCombinatorControlBehavior" then
+		return control.get_condition(1)
+	else
+		return control.parameters -- TODO remove with full migration
+	end
+end
+
+---Constructs a combinator output definition.
+---@param name string
+---@param type string? nil is equivalent to "item"
+---@param quality LuaQualityPrototype|string? nil is equivalent to "normal"
+---@param count int32
+---@see output_signal
+---@return DeciderCombinatorOutput
+function output_value(name, type, quality, count)
+	return {
+		copy_count_from_input = false,
+		constant = count,
+		signal = { name = name, quality = quality, type = type },
+	}
 end
 
 ---NOTE: does not check .valid
@@ -692,6 +712,8 @@ end
 ---@param map_data MapData
 ---@param station Station
 function update_display(map_data, station)
+	if true then return end -- TODO can no longer show state via the operation; LuaRendering instead?
+
 	local comb = station.entity_comb1
 	if comb.valid then
 		local control = get_comb_control(comb)
@@ -710,12 +732,27 @@ function update_display(map_data, station)
 	end
 end
 
+local MODE_TO_SELECTED_INDEX = {
+	[MODE_PRIMARY_IO] = 1,
+	[MODE_OLD_PRIMARY_IO] = 1,
+	[MODE_OLD_PRIMARY_IO_ACTIVE] = 1,
+	[MODE_OLD_PRIMARY_IO_FAILED_REQUEST] = 1,
+	[MODE_DEPOT] = 2,
+	[MODE_OLD_DEPOT] = 2,
+	[MODE_REFUELER] = 3,
+	[MODE_OLD_REFUELER] = 3,
+	[MODE_SECONDARY_IO] = 4,
+	[MODE_OLD_SECONDARY_IO] = 4,
+	[MODE_WAGON] = 5,
+	[MODE_OLD_WAGON] = 5,
+}
+
 ---@param comb LuaEntity
 function get_comb_gui_settings(comb)
 	local params = get_comb_params(comb)
-	local op = params.operation
+	local op = params.comparator or params.operation
 
-	local selected_index = 0
+	local selected_index = MODE_TO_SELECTED_INDEX[op]
 	local switch_state = "none"
 	local bits = params.second_constant or 0
 	local is_pr_state = bit_extract(bits, 0, 2)
@@ -727,67 +764,75 @@ function get_comb_gui_settings(comb)
 		switch_state = "right"
 	end
 
-	if op == MODE_OLD_PRIMARY_IO or op == MODE_OLD_PRIMARY_IO_ACTIVE or op == MODE_OLD_PRIMARY_IO_FAILED_REQUEST then
-		selected_index = 1
-	elseif op == MODE_OLD_DEPOT then
-		selected_index = 2
-	elseif op == MODE_OLD_REFUELER then
-		selected_index = 3
-	elseif op == MODE_OLD_SECONDARY_IO then
-		selected_index = 4
-	elseif op == MODE_OLD_WAGON then
-		selected_index = 5
-	end
 	return selected_index --[[@as uint]], params.first_signal, switch_state, bits
 end
 ---@param comb LuaEntity
 ---@param is_pr_state 0|1|2
 function set_comb_is_pr_state(comb, is_pr_state)
 	local control = get_comb_control(comb)
-	local param = control.parameters
+	local param = control.get_condition(1)
 	local bits = param.second_constant or 0
 
 	param.second_constant = bit_replace(bits, is_pr_state, 0, 2)
-	control.parameters = param
+	control.set_condition(1, param)
 end
 ---@param comb LuaEntity
 ---@param n int
 ---@param bit boolean
 function set_comb_setting(comb, n, bit)
 	local control = get_comb_control(comb)
-	local param = control.parameters
+	local param = control.get_condition(1)
 	local bits = param.second_constant or 0
 
 	param.second_constant = bit_replace(bits, bit and 1 or 0, n)
-	control.parameters = param
+	control.set_condition(1, param)
 end
 ---@param comb LuaEntity
 ---@param signal SignalID?
 function set_comb_network_name(comb, signal)
 	local control = get_comb_control(comb)
-	local param = control.parameters
+	local param = control.get_condition(1)
 
 	param.first_signal = signal
-	control.parameters = param
+	control.set_condition(1, param)
 end
 ---@param comb LuaEntity
 ---@param op string
 function set_comb_operation(comb, op)
 	local control = get_comb_control(comb)
-	local params = control.parameters
-	params.operation = op
-	control.parameters = params
+	local params = control.get_condition(1)
+	params.comparator = op
+	control.set_condition(1, param)
 end
 
 --- Set the output signals of a Cybersyn combinator.
 ---@param map_data MapData Cybersyn stored data.
 ---@param comb LuaEntity Factorio combinator entity.
----@param signals LogisticFilter[]?
+---@param signals DeciderCombinatorOutput[]?
 function set_combinator_output(map_data, comb, signals)
-	local out = map_data.to_output[comb.unit_number]
-	if out.valid then
-		-- out is a non-interactable, invisible combinator which means players cannot change the number of sections
-		out.get_or_create_control_behavior().get_section(1).filters = signals or {}
+	local control = get_comb_control(comb)
+	if control.object_name == "LuaDeciderCombinatorControlBehavior" then
+		local params = control.parameters
+		control.parameters = {
+			conditions = params.conditions,
+			outputs = signals or {},
+		}
+	else -- TODO remove with full migration
+		local out = map_data.to_output[comb.unit_number]
+		if out.valid then
+			if not signals then
+				out.get_or_create_control_behavior().get_section(1).filters = {}
+				return
+			end
+
+			---@type LogisticFilter[]
+			logistic_filters = {}
+			for i, output in ipairs(signals) do
+				local s = output.signal
+				logistic_filters[i] = { value = { name = s.name, type = s.type or "item", quality = s.quality or "normal", comparator = "=" }, min = output.constant }
+			end
+			out.get_or_create_control_behavior().get_section(1).filters = logistic_filters
+		end
 	end
 end
 
@@ -821,30 +866,20 @@ function set_comb2(map_data, station)
 		local deliveries = station.deliveries
 		---@type LogisticFilter[]
 		local signals = {}
+		local i = 1
 		for item_hash, count in pairs(deliveries) do
 			local item_name, item_quality = unhash_signal(item_hash)
-			local i = #signals + 1
-			local is_fluid = prototypes.item[item_name] == nil --NOTE: this is expensive
-			signals[i] = {
-				value = {
-					type = is_fluid and "fluid" or "item",
-					name = item_name,
-					quality = item_quality or "normal",
-					comparator = "=",
-				},
-				min = sign * count,
-			} -- constant combinator cannot have quality = nil (any)
+			local is_fluid = prototypes.item[item_name] == nil--NOTE: this is expensive
+			signals[i] = output_value(item_name, is_fluid and "fluid" or "item", item_quality or "normal", sign * count)
+			i = i + 1
 		end
 
 		-- Add train count virtual signal if enabled
 		if station.enable_train_count then
 			local train_count = station.deliveries_total
 			if train_count > 0 then
-				local i = #signals + 1
-				signals[i] = {
-					value = "signal-T",
-					min = train_count,
-				}
+				signals[i] = output_value("signal-T", "virtual", nil, train_count)
+				i = i + 1
 			end
 		end
 

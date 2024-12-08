@@ -13,10 +13,7 @@ local function set_comb1(map_data, station, manifest, sign)
 		if manifest then
 			local signals = {}
 			for i, item in ipairs(manifest) do
-				signals[i] = {
-					value = { type = item.type, name = item.name, quality = item.quality or "normal", comparator = "=" },
-					min = sign * item.count,
-				}
+				signals[i] = output_value(item.name, item.type, item.quality, sign * item.count)
 			end
 			set_combinator_output(map_data, comb, signals)
 		else

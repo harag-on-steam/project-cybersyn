@@ -227,10 +227,7 @@ function set_p_wagon_combs(map_data, station, train)
 						local count_to_fill = min(item_slots_capacity * stack_size, item_count)
 						local slots_to_fill = ceil(count_to_fill / stack_size)
 
-						signals[i] = {
-							value = { type = item.type, name = item.name, quality = item_qual, comparator = "=" },
-							min = sign * count_to_fill,
-						}
+						signals[i] = output_value(item.name, item.type, item_qual, sign * count_to_fill)
 						item_count = item_count - count_to_fill
 						item_slots_capacity = item_slots_capacity - slots_to_fill
 						if comb then
@@ -273,7 +270,7 @@ function set_p_wagon_combs(map_data, station, train)
 				if fluid.type == "fluid" then
 					local count_to_fill = min(fluid_count, fluid_capacity)
 
-					signals[1] = { index = 1, signal = { type = fluid.type, name = fluid.name }, count = sign * count_to_fill }
+					signals[1] = output_value(fluid.name, fluid.type, nil, sign * count_to_fill)
 					fluid_count = fluid_count - count_to_fill
 					fluid_capacity = 0
 					do_inc = fluid_count == 0
@@ -326,10 +323,7 @@ function set_r_wagon_combs(map_data, station, train)
 					local stack = inv[stack_i]
 					if stack.valid_for_read then
 						local i = #signals + 1
-						signals[i] = {
-							value = { type = "item", name = stack.name, quality = stack.quality or "normal", comparator = "=" },
-							min = sign * stack.count,
-						}
+						signals[i] = output_value(stack.name, nil, stack.quality, sign * stack.count)
 					end
 				end
 				set_combinator_output(map_data, comb, signals)
@@ -341,10 +335,7 @@ function set_r_wagon_combs(map_data, station, train)
 			for fluid_name, count in pairs(inv) do
 				local i = #signals + 1
 				-- FIXME ? pump conditions can have quality (but why? fluids can only be produced at normal quality and pump filters ignore quality)
-				signals[i] = {
-					value = { type = "fluid", name = fluid_name, quality = "normal", comparator = "=" },
-					min = sign * floor(count),
-				}
+				signals[i] = output_value(fluid_name, "fluid", nil, sign * floor(count))
 			end
 			set_combinator_output(map_data, comb, signals)
 		end
@@ -388,7 +379,7 @@ function set_refueler_combs(map_data, refueler, train)
 						name = a.name
 					end
 					if prototypes.item[name] then
-						wagon_signals[1] = { value = { type = "item", name = a.name, quality = "normal", comparator = "=" }, min = 1 }
+						wagon_signals[1] = output_value(a.name, nil, nil, 1)
 					end
 				end
 			end
@@ -397,21 +388,10 @@ function set_refueler_combs(map_data, refueler, train)
 				if stack.valid_for_read then
 					if comb then
 						local i = #wagon_signals + 1
-						wagon_signals[i] = {
-							value = {
-								type = "item",
-								name = stack.name,
-								quality = stack.quality or "normal",
-								comparator = "=",
-							},
-							min = stack.count,
-						}
+						wagon_signals[i] = output_value(stack.name, nil, stack.quality, stack.count)
 					end
 					local j = #signals + 1
-					signals[j] = {
-						value = { type = "item", name = stack.name, quality = stack.quality or "normal", comparator = "=" },
-						min = stack.count,
-					}
+					signals[j] = output_value(stack.name, nil, stack.quality, stack.count)
 				end
 			end
 			if comb then

@@ -63,6 +63,17 @@
 ---@field public display_state int
 ---@field public is_warming_up true?
 
+---@class DeciderCombinatorOutput -- The Factorio Lua API only defines this as 'table'
+---@field public copy_count_from_input boolean
+---@field public constant int32
+---@field public signal SignalFilter
+
+---@class DeciderCombinatorCondition -- The Factorio Lua API only defines this as 'table'
+---@field public comparator "="|">"|"<"|"≥"|">="|"≤"|"<="|"≠"|"!="
+---@field public first_signal SignalFilter?
+---@field public second_signal SignalFilter?
+---@field public second_constant int32?
+
 ---@class Depot
 ---@field public entity_stop LuaEntity
 ---@field public entity_comb LuaEntity
