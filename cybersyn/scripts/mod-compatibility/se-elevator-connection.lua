@@ -87,7 +87,7 @@ local function create_connector(data, ground_or_orbit)
 	ground_or_orbit.connector = connector
 	ground_or_orbit.connector_id = connector.unit_number
 
-	storage.elevators[ground_or_orbit.connector_id] = data
+	storage.se_elevators[ground_or_orbit.connector_id] = data
 end
 
 --- Disconnects elevators from Cybersyn by destroying the corresponding surface connectors
@@ -103,10 +103,10 @@ local function disconnect(data)
 	end
 
 	if data.ground.connector_id then
-		storage.elevators[data.ground.connector_id] = nil
+		storage.se_elevators[data.ground.connector_id] = nil
 	end
 	if data.orbit.connector_id then
-		storage.elevators[data.orbit.connector_id] = nil
+		storage.se_elevators[data.orbit.connector_id] = nil
 	end
 
 	data.ground.connector = nil
@@ -116,16 +116,15 @@ local function disconnect(data)
 end
 
 --- Register with Factorio to destroy LTN surface connectors when the corresponding elevator is removed
---- @param 
 function Elevator.on_object_destroyed(e)
 	if e.type ~= DESTORY_TYPE_ENTITY or not e.useful_id then return end
 
-	local data = storage.elevators[e.useful_id] -- useful_id for entities is the unit_number
+	local data = storage.se_elevators[e.useful_id] -- useful_id for entities is the unit_number
 	if data then
 		disconnect(data)
 
-		storage.elevators[data.ground.elevator_id] = nil
-		storage.elevators[data.orbit.elevator_id] = nil
+		storage.se_elevators[data.ground.elevator_id] = nil
+		storage.se_elevators[data.orbit.elevator_id] = nil
 	end
 end
 
@@ -150,7 +149,7 @@ end
 --- @param unit_number integer the unit_number of a `se-space-elevator` or `se-ltn-elevator-connector`
 --- @return Cybersyn.ElevatorData|nil
 function Elevator.from_unit_number(unit_number)
-	local elevator = storage.elevators[unit_number]
+	local elevator = storage.se_elevators[unit_number]
 	return elevator or nil
 end
 
@@ -188,18 +187,18 @@ function Elevator.from_entity(entity)
 		error("only know how to handle elevators in zone.type 'planet', 'moon' and 'orbit'")
 	end
 
-	storage.elevators[data.ground.elevator_id] = data
-	storage.elevators[data.orbit.elevator_id] = data
+	storage.se_elevators[data.ground.elevator_id] = data
+	storage.se_elevators[data.orbit.elevator_id] = data
 
 	-- no need to track by registration number, both entities are valid and must have a unit_number
 	script.register_on_object_destroyed(data.ground.elevator)
 	script.register_on_object_destroyed(data.orbit.elevator)
 
 	if data.ground.connector_id then
-		storage.elevators[data.ground.connector_id] = data
+		storage.se_elevators[data.ground.connector_id] = data
 	end
 	if data.orbit.connector_id then
-		storage.elevators[data.orbit.connector_id] = data
+		storage.se_elevators[data.orbit.connector_id] = data
 	end
 
 	return data

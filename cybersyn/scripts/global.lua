@@ -24,8 +24,8 @@
 ---@field public each_refuelers {[uint]: true}
 ---@field public active_alerts {[uint]: {[1]: LuaTrain, [2]: int}}?
 ---@field public manager Manager
----@field public Elevators {[uint]: Cybersyn.ElevatorData} maps relevant entities on both surfaces to one shared data structure for the whole space elevator; the key can be the unit_number of the elevator's main assembler or its train stop
----@field public ConnectedSurfaces {[string]: {[string]: Cybersyn.SurfaceConnection}} maps pairs of surfaces to the pairs of entities connecting them
+---@field public se_elevators {[uint]: Cybersyn.ElevatorData} maps relevant entities on both surfaces to one shared data structure for the whole space elevator; the key can be the unit_number of the elevator's main assembler or its train stop
+---@field public connected_surfaces {[string]: {[string]: Cybersyn.SurfaceConnection}} maps pairs of surfaces to the pairs of entities connecting them
 ---@field public perf_cache PerfCache -- This gets reset to an empty table on migration change
 
 ---@class PerfCache
