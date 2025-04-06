@@ -33,7 +33,7 @@ end
 --- Creates a new ElevatorEndData structure if all necessary entities are present on the given surfaces at the given location
 --- @param surface LuaSurface
 --- @param position MapPosition supposed to be at the center of an elevator, will be searched in a 12-tile radius
---- @return ElevatorEndData?
+--- @return Cybersyn.ElevatorEndData?
 local function search_entities(surface, position)
 	local x = position.x or position[1]
 	local y = position.y or position[2]
@@ -69,8 +69,8 @@ local function search_entities(surface, position)
 end
 
 --- Creates a surface connector entity within the given elevator data and adds a lookup from its unit_number to the main elevator data
---- @param data ElevatorData
---- @param ground_or_orbit ElevatorEndData the subtable in data that should be modified
+--- @param data Cybersyn.ElevatorData
+--- @param ground_or_orbit Cybersyn.ElevatorEndData the subtable in data that should be modified
 local function create_connector(data, ground_or_orbit)
 	local elevator = ground_or_orbit.elevator
 	if debug_log then log(string.format("creating Cybersyn connector for elevator "..gps_text(ground_or_orbit.elevator))) end
@@ -91,7 +91,7 @@ local function create_connector(data, ground_or_orbit)
 end
 
 --- Disconnects elevators from Cybersyn by destroying the corresponding surface connectors
---- @param data ElevatorData
+--- @param data Cybersyn.ElevatorData
 local function disconnect(data)
 	if data.ground.connector and data.ground.connector.valid then
 		if debug_log then log(string.format("destroying Cybersyn ground connector for elevator "..gps_text(data.orbit.connector))) end
@@ -148,7 +148,7 @@ end
 
 --- Looks up the elevator data for the given unit_number. The data structure won't be created if it doesn't exist
 --- @param unit_number integer the unit_number of a `se-space-elevator` or `se-ltn-elevator-connector`
---- @return ElevatorData|nil
+--- @return Cybersyn.ElevatorData|nil
 function Elevator.from_unit_number(unit_number)
 	local elevator = storage.elevators[unit_number]
 	return elevator or nil
@@ -156,7 +156,7 @@ end
 
 --- Looks up the elevator data for the given entity. Creates the data structure if it doesn't exist, yet.
 --- @param entity LuaEntity? must be a `se-space-elevator` or `se-ltn-elevator-connector`
---- @return ElevatorData?
+--- @return Cybersyn.ElevatorData?
 function Elevator.from_entity(entity)
 	if not (entity and entity.valid) then
 		return nil
@@ -206,7 +206,7 @@ function Elevator.from_entity(entity)
 end
 
 --- Connects or disconnects the elevator from LTN based on ltn_enabled and updates the network_id when connected to LTN
---- @param data ElevatorData
+--- @param data Cybersyn.ElevatorData
 function Elevator.update_connection(data)
 	if data.cs_enabled then
 		if not (data.ground.connector and data.ground.connector.valid) then
