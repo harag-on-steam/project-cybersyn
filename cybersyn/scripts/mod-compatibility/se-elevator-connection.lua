@@ -1,9 +1,12 @@
+---@alias SeZoneType "star"|"planet"|"moon"|"orbit"|"spaceship"|"asteroid-belt"|"asteroid-field"|"anomaly"
+---@alias SeZoneIndex integer
+
 ---@class SeZone The relevant fields of a Space Exploration zone
----@field type "star"|"planet"|"moon"|"orbit"|"spaceship"|"asteroid-belt"|"asteroid-field"|"anomaly"
+---@field type SeZoneType
 ---@field name string -- the display name of the zone
----@field index integer -- the zone's table index
----@field orbit_index integer? -- the zone index of the orbit
----@field parent_index integer? -- the zone index of the parent zone
+---@field index SeZoneIndex -- the zone's table index
+---@field orbit_index SeZoneIndex? -- the zone index of the orbit
+---@field parent_index SeZoneIndex? -- the zone index of the parent zone
 ---@field surface_index integer? -- the Factorio surface index of the zone
 ---@field seed integer? -- the mapgen seed
 
@@ -12,10 +15,9 @@ local DESTORY_TYPE_ENTITY = defines.target_type.entity
 local Elevator = {
 	name_elevator = "se-space-elevator",
 	name_stop = "se-space-elevator-train-stop",
-	name_connector = "cybersyn-se-elevator-connector",
 }
 
-local ENTITY_SEARCH = { Elevator.name_elevator, Elevator.name_stop, Elevator.name_connector }
+local ENTITY_SEARCH = { Elevator.name_elevator, Elevator.name_stop }
 
 --- Creates a new ElevatorEndData structure if all necessary entities are present on the given surfaces at the given location
 --- @param surface LuaSurface
@@ -25,18 +27,13 @@ local function search_entities(surface, position)
 	local x = position.x or position[1]
 	local y = position.y or position[2]
 	local search_area = { { x - 12, y - 12 }, { x + 12, y + 12 } } -- elevator is 24x24
-	local elevator, stop, connector
+	local elevator, stop
 
-	for _, found_entity in pairs(surface.find_entities_filtered({
-		name = ENTITY_SEARCH,
-		area = search_area,
-	})) do
+	for _, found_entity in pairs(surface.find_entities_filtered({ name = ENTITY_SEARCH, area = search_area, })) do
 		if found_entity.name == Elevator.name_stop then
 			stop = found_entity
 		elseif found_entity.name == Elevator.name_elevator then
 			elevator = found_entity
-		elseif found_entity.name == Elevator.name_connector then
-			connector = found_entity
 		end
 	end
 
@@ -47,59 +44,11 @@ local function search_entities(surface, position)
 	return {
 		elevator = elevator,
 		stop = stop,
-		connector = connector,
 
 		-- these are kept in the record for table cleanup in case the entities become unreadable
 		elevator_id = elevator.unit_number,
-		connector_id = connector and connector.valid and connector.unit_number,
+		stop_id = stop.unit_number,
 	}
-end
-
---- Creates a surface connector entity within the given elevator data and adds a lookup from its unit_number to the main elevator data
---- @param data Cybersyn.ElevatorData
---- @param ground_or_orbit Cybersyn.ElevatorEndData the subtable in data that should be modified
-local function create_connector(data, ground_or_orbit)
-	local elevator = ground_or_orbit.elevator
-	if debug_log then log(string.format("creating Cybersyn connector for elevator "..gps_text(ground_or_orbit.elevator))) end
-
-	local connector = elevator.surface.create_entity({
-		name = Elevator.name_connector,
-		position = elevator.position,
-		force = elevator.force,
-		create_build_effect_smoke = false,
-	}) --[[@as LuaEntity]]
-	connector.destructible = false
-	connector.operable = false
-
-	ground_or_orbit.connector = connector
-	ground_or_orbit.connector_id = connector.unit_number
-
-	storage.se_elevators[ground_or_orbit.connector_id] = data
-end
-
---- Disconnects elevators from Cybersyn by destroying the corresponding surface connectors
---- @param data Cybersyn.ElevatorData
-local function disconnect(data)
-	if data.ground.connector and data.ground.connector.valid then
-		if debug_log then log(string.format("destroying Cybersyn ground connector for elevator "..gps_text(data.orbit.connector))) end
-		data.ground.connector.destroy()
-	end
-	if data.orbit.connector and data.orbit.connector.valid then
-		if debug_log then log(string.format("destroying Cybersyn orbit connector for elevator "..gps_text(data.orbit.connector))) end
-		data.orbit.connector.destroy()
-	end
-
-	if data.ground.connector_id then
-		storage.se_elevators[data.ground.connector_id] = nil
-	end
-	if data.orbit.connector_id then
-		storage.se_elevators[data.orbit.connector_id] = nil
-	end
-
-	data.ground.connector = nil
-	data.orbit.connector = nil
-	data.ground.connector_id = nil
-	data.orbit.connector_id = nil
 end
 
 --- Register with Factorio to destroy LTN surface connectors when the corresponding elevator is removed
@@ -108,10 +57,10 @@ function Elevator.on_object_destroyed(e)
 
 	local data = storage.se_elevators[e.useful_id] -- useful_id for entities is the unit_number
 	if data then
-		disconnect(data)
-
 		storage.se_elevators[data.ground.elevator_id] = nil
 		storage.se_elevators[data.orbit.elevator_id] = nil
+		storage.se_elevators[data.ground.stop_id] = nil
+		storage.se_elevators[data.orbit.stop_id] = nil
 	end
 end
 
@@ -132,8 +81,8 @@ local function find_opposite_surface(surface_index)
 	return nil
 end
 
---- Looks up the elevator data for the given unit_number. The data structure won't be created if it doesn't exist
---- @param unit_number integer the unit_number of a `se-space-elevator` or `se-ltn-elevator-connector`
+--- Looks up the elevator data for the given unit_number. The data structure *won't* be created if it doesn't exist.
+--- @param unit_number integer the unit_number of a `se-space-elevator` or `se-space-elevator-train-stop`
 --- @return Cybersyn.ElevatorData|nil
 function Elevator.from_unit_number(unit_number)
 	local elevator = storage.se_elevators[unit_number]
@@ -141,7 +90,7 @@ function Elevator.from_unit_number(unit_number)
 end
 
 --- Looks up the elevator data for the given entity. Creates the data structure if it doesn't exist, yet.
---- @param entity LuaEntity? must be a `se-space-elevator` or `se-ltn-elevator-connector`
+--- @param entity LuaEntity? must be a `se-space-elevator` or `se-space-elevator-train-stop`
 --- @return Cybersyn.ElevatorData?
 function Elevator.from_entity(entity)
 	if not (entity and entity.valid) then
@@ -151,7 +100,7 @@ function Elevator.from_entity(entity)
 	if data then return data end
 
 	-- construct new data
-	if entity.name ~= Elevator.name_elevator and entity.name ~= Elevator.name_connector then
+	if entity.name ~= Elevator.name_elevator and entity.name ~= Elevator.name_stop then
 		error("entity must be an elevator or the corresponding connector entity")
 	end
 
@@ -167,8 +116,9 @@ function Elevator.from_entity(entity)
 	data = {
 		ground = (opposite_zone_type == "planet" or opposite_zone_type == "moon") and end2 or end1,
 		orbit = opposite_zone_type == "orbit" and end2 or end1,
-		cs_enabled = end1.connector_id and end2.connector_id and true,
-		network_id = -1, -- no entity in the world has this information so reset to -1
+		-- no entity in the world has this information so reset to "no network restrictions but disabled"
+		cs_enabled = false,
+		network_masks = nil,
 	}
 	if data.ground == data.orbit then
 		error("only know how to handle elevators in zone.type 'planet', 'moon' and 'orbit'")
@@ -176,42 +126,26 @@ function Elevator.from_entity(entity)
 
 	storage.se_elevators[data.ground.elevator_id] = data
 	storage.se_elevators[data.orbit.elevator_id] = data
+	storage.se_elevators[data.ground.stop_id] = data
+	storage.se_elevators[data.orbit.stop_id] = data
 
 	-- no need to track by registration number, both entities are valid and must have a unit_number
 	script.register_on_object_destroyed(data.ground.elevator)
 	script.register_on_object_destroyed(data.orbit.elevator)
 
-	if data.ground.connector_id then
-		storage.se_elevators[data.ground.connector_id] = data
-	end
-	if data.orbit.connector_id then
-		storage.se_elevators[data.orbit.connector_id] = data
-	end
-
 	return data
 end
 
---- Connects or disconnects the elevator from LTN based on ltn_enabled and updates the network_id when connected to LTN
+--- Connects or disconnects the eleator from Cybersyn based on cs_enabled and updates the network_id when connected to 
 --- @param data Cybersyn.ElevatorData
 function Elevator.update_connection(data)
 	if data.cs_enabled then
-		if not (data.ground.connector and data.ground.connector.valid) then
-			create_connector(data, data.ground)
-		end
-		if not (data.orbit.connector and data.orbit.connector.valid) then
-			create_connector(data, data.orbit)
-		end
-
-		remote.call("logistic-train-network", "connect_surfaces", data.ground.connector, data.orbit.connector, data.network_id)
-
-		if data.network_id == -1 then
+		local status = surfaces.connect_surfaces(data.ground.stop, data.orbit.stop, data.network_masks)
+		if status == surfaces.status.created then
 			data.ground.elevator.force.print({ "cybersyn-messages.elevator-connected", gps_text(data.ground.elevator) })
-		else
-			data.ground.elevator.force.print({ "cybersyn-messages.elevator-connected-masked", gps_text(data.ground.elevator), network_text(data.network_id) })
 		end
 	else
-		disconnect(data)
-
+		surfaces.disconnect_surfaces(data.ground.stop, data.orbit.stop)
 		data.ground.elevator.force.print({ "cybersyn-messages.elevator-disconnected", gps_text(data.ground.elevator) })
 	end
 end

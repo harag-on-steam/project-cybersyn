@@ -159,7 +159,7 @@
 ---@field public connector LuaEntity
 ---@field public elevator LuaEntity
 ---@field public stop LuaEntity
----@field public connector_id integer
+---@field public stop_id integer
 ---@field public elevator_id integer
 
 ---@class Cybersyn.ElevatorData
