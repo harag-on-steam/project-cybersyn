@@ -88,3 +88,28 @@ combinator_out_entity.circuit_wire_connection_points = {
 	wire_con0,
 	wire_con0,
 }
+
+-- Tracking elevator usability through separate entities has the advantage that they can simply be removed to invalidate the connection
+se_elevator_connector = {
+    type = "simple-entity-with-force",
+    name = "cybersyn-se-elevator-connector",
+    selectable_in_game = false,
+    picture = {
+        filename = "__core__/graphics/empty.png",
+        priority = "high",
+        frame_count = 1,
+        height = 1,
+        width = 1,
+        direction_count = 1,
+        variation_count = 1,
+    },
+    flags = {
+        "hidden",
+        "not-blueprintable",
+        "not-deconstructable",
+        "not-repairable",
+        "not-in-kill-statistics",
+        "not-on-map",
+        "not-rotatable",
+    },
+}
