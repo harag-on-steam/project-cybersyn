@@ -49,7 +49,7 @@ function Surfaces.find_surface_connections(surface1, surface2, force, network_na
                 matching_connections[count] = connection
             end
         else
-            if debug_log then log("removing invalid surface connection " .. entity_pair_key .. " between surfaces " .. surface_pair_key) end
+            if debug_log then log(format("removing invalid surface connection [%s] between surfaces [%s]", entity_pair_key, surface_pair_key)) end
             surface_connections[entity_pair_key] = nil
         end
     end
@@ -64,9 +64,10 @@ end
 -- removes the surface connection between the given entities from storage.SurfaceConnections. Does nothing if the connection doesn't exist.
 ---@param entity1 LuaEntity
 ---@param entity2 LuaEntity
+---@return boolean
 function Surfaces.disconnect_surfaces(entity1, entity2)
-    if not (entity1.valid and entity2.valid) then
-        return -- these will eventually clean up in find_surface_connections()
+    if not (entity1 and entity1.valid and entity2 and entity2.valid) then
+        return false -- these will eventually clean up in find_surface_connections()
     end
 
     local surface_pair_key = sorted_pair(entity1.surface.index, entity2.surface.index)
@@ -74,18 +75,20 @@ function Surfaces.disconnect_surfaces(entity1, entity2)
 
     if surface_connections then
         local entity_pair_key = sorted_pair(entity1.unit_number, entity2.unit_number)
-        if debug_log then log("removing surface connection for entities "..entity_pair_key.." between surfaces "..surface_pair_key) end
+        if debug_log then log(format("removing surface connection for entities [%s] between surfaces [%s]", entity_pair_key, surface_pair_key)) end
         surface_connections[entity_pair_key] = nil
     end
+    return true
 end
 
   -- adds a surface connection between the given entities; the network_id will be used in delivery processing to discard providers that don't match the surface connection's network_id
   ---@param entity1 LuaEntity
   ---@param entity2 LuaEntity
-  ---@param network_id integer
-  function Surfaces.connect_surfaces(entity1, entity2, network_id)
-    if not (entity1.valid and entity2.valid) then
-        return
+  ---@param network_masks {[string]: integer}?
+  ---@return boolean
+  function Surfaces.connect_surfaces(entity1, entity2, network_masks)
+    if not (entity1 and entity1.valid and entity2 and entity2.valid) then
+        return false
     end
 
     if entity1.surface == entity2.surface then
@@ -94,7 +97,7 @@ end
             entity1.unit_number, entity2.unit_number,
             entity1.surface.name, entity1.surface.index))
         end
-        return
+        return false
     end
 
     local surface_pair_key = sorted_pair(entity1.surface.index, entity2.surface.index)
@@ -109,10 +112,12 @@ end
 
     -- enforce a consistent order for repeated calls with the same two entities
     if entity2.unit_number < entity1.unit_number then
-        surface_connections[entity_pair_key] = { entity1 = entity2, entity2 = entity1, network_id = network_id }
+        surface_connections[entity_pair_key] = { entity1 = entity2, entity2 = entity1, network_id = network_masks }
     else
-        surface_connections[entity_pair_key] = { entity1 = entity1, entity2 = entity2, network_id = network_id }
+        surface_connections[entity_pair_key] = { entity1 = entity1, entity2 = entity2, network_id = network_masks }
     end
+
+    return true
 end
 
 function Surfaces.on_surface_deleted(event)
