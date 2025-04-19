@@ -10,9 +10,12 @@
 ---@field surface_index integer? -- the Factorio surface index of the zone
 ---@field seed integer? -- the mapgen seed
 
+local gui = require("__flib__.gui")
+
 Elevators = {
 	name_elevator = "se-space-elevator",
 	name_stop = "se-space-elevator-train-stop",
+	ui_name = "cybersyn-se-elevator-frame",
 }
 
 local ENTITY_SEARCH = { Elevators.name_elevator, Elevators.name_stop }
@@ -150,13 +153,87 @@ function Elevators.update_connection(data)
 	end
 end
 
+---@param e EventData.on_gui_switch_state_changed
+local function se_elevator_toggle(e)
+    local unit_number = e.element.tags.unit_number --[[@as int?]]
+    if not unit_number then return end
+
+    local data = Elevators.from_unit_number(unit_number)
+	if not data then return end
+
+	data.cs_enabled = e.element.switch_state == "right"
+	Elevators.update_connection(data)
+end
+
+gui.add_handlers({
+	se_elevator_toggle = se_elevator_toggle,
+})
+
+---@param player LuaPlayer
+---@param elevator LuaEntity
+---@param elevator_data Cybersyn.ElevatorData
+local function create_frame(player, elevator, elevator_data)
+	gui.add(player.gui.relative, {
+		type = "frame", name = Elevators.ui_name,
+		anchor = { gui = defines.relative_gui_type.assembling_machine_gui, position = defines.relative_gui_position.top },
+		direction = "horizontal",
+		style_mods = { padding = { 5, 5, 0, 5 } }, -- top right bottom left
+		{
+			type = "flow",
+			{
+				type = "label", style = "frame_title", ignored_by_interaction = true,
+				style_mods = { top_margin = -3 },
+				caption = "Cybersyn",
+			},
+			{
+				type = "switch", name = "connect_switch",
+				style_mods = { top_margin = 2 },
+				tags = { unit_number = elevator.unit_number },
+				allow_none_state = false,
+				switch_state = elevator_data.cs_enabled and "right" or "left",
+				right_label_caption = "Connected",
+				handler = { [defines.events.on_gui_switch_state_changed] = se_elevator_toggle }
+			},
+		}
+	})
+end
+
+---@param event EventData.on_gui_opened
+---@param player LuaPlayer
+---@param entity LuaEntity
+---@param is_ghost boolean
+function Elevators.on_entity_gui_opened(event, player, entity, is_ghost)
+	if is_ghost then return end
+
+	local elevator_data = Elevators.from_entity(entity)
+	if not elevator_data then return end
+
+	local frame = player.gui.relative[Elevators.ui_name]
+	if frame then
+		frame.destroy()
+	end
+
+	create_frame(player, entity, elevator_data)
+end
+
+---@param event EventData.on_gui_closed
+---@param player LuaPlayer
+---@param entity LuaEntity
+---@param is_ghost boolean
+function Elevators.on_entity_gui_closed(event, player, entity, is_ghost)
+	local frame = player.gui.relative[Elevators.ui_name]
+	if frame then
+		frame.destroy()
+	end
+end
+
 ---@param command CustomCommandData
 local function command_toggle_elevator(command)
 	if not command.player_index then
 		game.print("Can only be invoked as a player.")
 		return
 	end
-	local player = game.get_player(command.player_index) --[[@as LuaPlayer]]
+	local player = assert(game.get_player(command.player_index))
 
 	local elevator = player.selected
 	if not (elevator and elevator.valid and elevator.name == Elevators.name_elevator) then
@@ -164,7 +241,7 @@ local function command_toggle_elevator(command)
 		return
 	end
 
-	local data = Elevators.from_entity(elevator) --[[@as Cybersyn.ElevatorData]]
+	local data = assert(Elevators.from_entity(elevator))
 	data.cs_enabled = not data.cs_enabled
 	Elevators.update_connection(data)
 end
