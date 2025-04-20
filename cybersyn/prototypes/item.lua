@@ -1,3 +1,5 @@
+local item_sounds = require("__base__.prototypes.item_sounds")
+
 --By Mami
 combinator_item = flib.copy_prototype(data.raw["item"]["arithmetic-combinator"], COMBINATOR_NAME)
 combinator_item.icon = "__cybersyn__/graphics/icons/cybernetic-combinator.png"
@@ -11,3 +13,18 @@ if mods["nullius"] then
 	-- Enable item in Nullius and place next to the regular train stop
 	combinator_item.order = "nullius-eca"
 end
+
+provider_id_item = {
+	type = "item",
+	name = PROVIDER_ID_ITEM,
+	hidden = true,
+	icon = "__base__/graphics/icons/arrows/signal-output.png",
+	stack_size = 1,
+	weight = 100 * tons, -- too heavy for a rocket
+}
+
+requester_id_item = flib.copy_prototype(provider_id_item, REQUESTER_ID_ITEM)
+requester_id_item.icon = "__base__/graphics/icons/arrows/signal-input.png"
+
+refueler_id_item = flib.copy_prototype(provider_id_item, REFUELER_ID_ITEM)
+refueler_id_item.icon = "__base__/graphics/icons/arrows/signal-clockwise-circle-arrow.png"

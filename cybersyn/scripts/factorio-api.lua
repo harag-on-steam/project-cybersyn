@@ -87,13 +87,79 @@ local conditions_only_inactive = { condition_wait_inactive }
 ---@type WaitCondition[]
 local conditions_direct_to_station = { { type = "time", compare_type = "and", ticks = 1 } }
 
+---@param id_item string
+---@param id integer
+local function stop_id_condition(id_item, id)
+	return {
+		type = "fuel_item_count_any",
+		compare_type = "and",
+		condition = {
+			comparator = "≤",
+			first_signal = { type = "item", name = id_item, quality = "normal" },
+			constant = id,
+		}
+	}
+end
+
+local ID_ITEM_TO_STATUS = {
+    [PROVIDER_ID_ITEM] = STATUS_P,
+    [REQUESTER_ID_ITEM] = STATUS_R,
+    [REFUELER_ID_ITEM] = STATUS_F,
+}
+
+---@class ScheduleSearchResult
+---@field schedule_record ScheduleRecord the record of the Cybersyn stop
+---@field schedule_index integer the index of the Cybersyn stop in the schedule
+---@field stop_type integer STATUS_P | STATUS_R | STATUS_F
+---@field stop_id integer the unit_number of the stop
+---@field rail_stop LuaEntity? the preceding rail stop if present in the schedule
+
+---Searches the given schedule records for the next Cybersyn stop.
+---Assumes the stops have been create with a stop_id_condition().
+---@param schedule_records ScheduleRecord[] the schedule to search in
+---@param search_index integer the schedule index to search from (inclusive)
+---@return ScheduleSearchResult? result nil if no further Cybersyn stop is in the schedule
+function find_next_cybersyn_stop(schedule_records, search_index)
+	for i = search_index, #schedule_records do
+		local record = schedule_records[i]
+		if record.temporary and not record.created_by_interrupt and record.wait_conditions then
+			local _, wait_condition = next(record.wait_conditions)
+			if wait_condition and wait_condition.condition and wait_condition.type == "fuel_item_count_any" then
+				local signal = wait_condition.condition.first_signal
+				local constant = wait_condition.condition.constant
+				local stop_type = signal and signal.name and ID_ITEM_TO_STATUS[signal.name]
+				if constant and stop_type then
+					return {
+						schedule_record = record,
+						schedule_index = i,
+						stop_type = stop_type,
+						stop_id = constant,
+						rail_stop = i > 1 and schedule_records[i-1].rail or nil,
+					}
+				end
+			end
+		end
+	end
+end
+
 ---@param stop LuaEntity
 ---@param manifest Manifest
 ---@param schedule_settings Cybersyn.StationScheduleSettings
+---@param with_id boolean?
 ---@return AddRecordData
-function create_loading_order(stop, manifest, schedule_settings)
+function create_loading_order(stop, manifest, schedule_settings, with_id)
 	---@type WaitCondition[]
-	local conditions = {}
+	local conditions, i = {}, 0
+	---@param condition WaitCondition
+	local function add(condition)
+		i = i + 1
+		conditions[i] = condition
+	end
+
+	if with_id then
+		add(stop_id_condition("cybersyn-provider-id", stop.unit_number))
+	end
+
 	for _, item in ipairs(manifest) do
 		local cond_type
 		if item.type == "fluid" then
@@ -102,7 +168,7 @@ function create_loading_order(stop, manifest, schedule_settings)
 			cond_type = "item_count"
 		end
 
-		conditions[#conditions + 1] = {
+		add({
 			type = cond_type,
 			compare_type = "and",
 			condition = {
@@ -110,13 +176,13 @@ function create_loading_order(stop, manifest, schedule_settings)
 				first_signal = { type = item.type, name = item.name, quality = item.quality },
 				constant = item.count,
 			},
-		}
+		})
 	end
 	if schedule_settings.enable_inactive then
-		conditions[#conditions + 1] = condition_wait_inactive
+		add(condition_wait_inactive)
 	end
 	if schedule_settings.enable_circuit_condition then
-		conditions[#conditions + 1] = condition_circuit
+		add(condition_circuit)
 	end
 	return {
 		station = stop.backer_name,
@@ -127,26 +193,36 @@ end
 
 ---@param stop LuaEntity
 ---@param schedule_settings Cybersyn.StationScheduleSettings
+---@param with_id boolean?
 ---@return AddRecordData
-function create_unloading_order(stop, schedule_settings)
+function create_unloading_order(stop, schedule_settings, with_id)
 	---@type WaitCondition[]
-	local conditions = {}
+	local conditions, i = {}, 0
+	---@param condition WaitCondition
+	local function add(condition)
+		i = i + 1
+		conditions[i] = condition
+	end
+
+	if with_id then
+		add(stop_id_condition("cybersyn-requester-id", stop.unit_number))
+	end
 
 	if schedule_settings.enable_inactive then
-		conditions[#conditions + 1] = condition_wait_inactive
+		add(condition_wait_inactive)
 		if not mod_settings.allow_cargo_in_depot then
 			-- This implements the behavior specified in the documentation for
 			-- allow_cargo_in_depot. When enabled, trains only wait for inactivity
 			-- when unloading at requesters.
-			conditions[#conditions + 1] = condition_empty
+			add(condition_empty)
 		end
 	else
 		-- No inactivity condition = always wait for empty
-		conditions[#conditions + 1] = condition_empty
+		add(condition_empty)
 	end
 
 	if schedule_settings.enable_circuit_condition then
-		conditions[#conditions + 1] = condition_circuit
+		add(condition_circuit)
 	end
 
 	return {
@@ -157,11 +233,18 @@ function create_unloading_order(stop, schedule_settings)
 end
 
 ---@param depot_name string
+---@param id_item string?
+---@param id integer?
 ---@return AddRecordData
-function create_inactivity_order(depot_name)
+function create_inactivity_order(depot_name, id_item, id)
+	local wait_conditions = id_item and id and {
+		stop_id_condition(id_item, id),
+		condition_wait_inactive,
+	}
+
 	return {
 		station = depot_name,
-		wait_conditions = conditions_only_inactive,
+		wait_conditions = wait_conditions or conditions_only_inactive,
 		temporary = true,
 	}
 end
