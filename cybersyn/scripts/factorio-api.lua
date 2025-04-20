@@ -116,6 +116,7 @@ local ID_ITEM_TO_STATUS = {
 
 ---@class ScheduleSearchOptions
 ---@field search_index integer? the schedule index to begin the search at
+---@field abort_condition fun(record: ScheduleRecord)? abort the search if a record matches the given condition
 ---@field stop_id integer? search for the stop with this id
 ---@field include_depot boolean? should the search consider depots? depots never have a stop_id
 
@@ -127,6 +128,8 @@ local ID_ITEM_TO_STATUS = {
 function find_next_cybersyn_stop(schedule_records, options)
 	for i = options.search_index or 1, #schedule_records do
 		local record = schedule_records[i]
+		if options.abort_condition and options.abort_condition(record) then	return end
+
 		if record.temporary and not record.created_by_interrupt and record.wait_conditions then
 			local _, wait_condition = next(record.wait_conditions)
 			if wait_condition and wait_condition.condition and wait_condition.type == "fuel_item_count_any" then
