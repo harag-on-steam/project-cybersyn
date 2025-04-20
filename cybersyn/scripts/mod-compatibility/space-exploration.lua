@@ -72,6 +72,30 @@ local function se_add_direct_to_station_order(map_data, train, schedule, found_c
 	return schedule_offset + 1
 end
 
+---@param map_data MapData
+---@param train Train
+local function se_add_direct_to_station_orders(map_data, train)
+	-- schedule records can only contain references to rail entities on the same surface as the train
+	-- this is why after every surface teleport we need to add the ones that could not be added earlier
+	local schedule = train.entity.get_schedule()
+	local records = assert(schedule.get_records())
+	---@type ScheduleSearchOptions
+	local options = {
+		search_index = schedule.current,
+		abort_condition = se_is_elevator_schedule_record, -- stop at the next elevator transition
+		include_depot = true,
+	}
+
+	local found_cybersyn_stop = find_next_cybersyn_stop(records, options)
+	local schedule_offset = 0 -- we search through the initial snapshot of the schedule so we need to keep track of additions to it
+
+	while found_cybersyn_stop do
+		schedule_offset = se_add_direct_to_station_order(map_data, train, schedule, found_cybersyn_stop, schedule_offset)
+		options.search_index = found_cybersyn_stop.schedule_index + 1
+		found_cybersyn_stop = find_next_cybersyn_stop(records, options)
+	end
+end
+
 local function se_on_train_teleport_started(event)
 	---@type MapData
 	local map_data = storage
@@ -79,7 +103,8 @@ local function se_on_train_teleport_started(event)
 
 	local train = map_data.trains[old_id]
 	if not train then return end
-	--NOTE: IMPORTANT, until se_on_train_teleport_finished_event is called map_data.trains[old_id] will reference an invalid train entity; our events have either been set up to account for this or should be impossible to trigger until teleportation is finished
+	-- NOTE: IMPORTANT, until se_on_train_teleport_finished_event is called map_data.trains[old_id] will reference an invalid train entity
+	-- our events have either been set up to account for this or should be impossible to trigger until teleportation is finished
 	train.se_is_being_teleported = true
 	interface_raise_train_teleport_started(old_id)
 end
@@ -130,25 +155,7 @@ local function se_on_train_teleport_finished(event)
 		train.se_awaiting_rename = nil
 	end
 
-	-- schedule records can only contain references to rail entities on the same surface as the train
-	-- this is why after every surface teleport we need to add the ones that could not be added earlier
-	local schedule = train_entity.get_schedule()
-	local records = assert(schedule.get_records())
-	---@type ScheduleSearchOptions
-	local options = {
-		search_index = schedule.current,
-		abort_condition = se_is_elevator_schedule_record, -- stop at the next elevator transition
-		include_depot = true,
-	}
-
-	local found_cybersyn_stop = find_next_cybersyn_stop(records, options)
-	local schedule_offset = 0 -- we search through the initial snapshot of the schedule so we need to keep track of additions to it
-
-	while found_cybersyn_stop do
-		schedule_offset = se_add_direct_to_station_order(map_data, train, schedule, found_cybersyn_stop, schedule_offset)
-		options.search_index = found_cybersyn_stop.schedule_index + 1
-		found_cybersyn_stop = find_next_cybersyn_stop(records, options)
-	end
+	se_add_direct_to_station_orders(map_data, train)
 	interface_raise_train_teleported(new_id, old_id)
 end
 
