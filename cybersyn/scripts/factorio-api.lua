@@ -110,17 +110,22 @@ local ID_ITEM_TO_STATUS = {
 ---@class ScheduleSearchResult
 ---@field schedule_record ScheduleRecord the record of the Cybersyn stop
 ---@field schedule_index integer the index of the Cybersyn stop in the schedule
----@field stop_type integer STATUS_P | STATUS_R | STATUS_F
+---@field stop_type integer STATUS_P | STATUS_R | STATUS_F | STATUS_D
 ---@field stop_id integer the unit_number of the stop
----@field rail_stop LuaEntity? the preceding rail stop if present in the schedule
+---@field rail_stop ScheduleRecord? the preceding rail stop if present in the schedule
+
+---@class ScheduleSearchOptions
+---@field search_index integer? the schedule index to begin the search at
+---@field stop_id integer? search for the stop with this id
+---@field include_depot boolean? should the search consider depots? depots never have a stop_id
 
 ---Searches the given schedule records for the next Cybersyn stop.
----Assumes the stops have been create with a stop_id_condition().
+---Assumes the stops have been created with a stop_id_condition().
 ---@param schedule_records ScheduleRecord[] the schedule to search in
----@param search_index integer the schedule index to search from (inclusive)
----@return ScheduleSearchResult? result nil if no further Cybersyn stop is in the schedule
-function find_next_cybersyn_stop(schedule_records, search_index)
-	for i = search_index, #schedule_records do
+---@param options ScheduleSearchOptions
+---@return ScheduleSearchResult? result nil if no matching Cybersyn stop is in the schedule
+function find_next_cybersyn_stop(schedule_records, options)
+	for i = options.search_index or 1, #schedule_records do
 		local record = schedule_records[i]
 		if record.temporary and not record.created_by_interrupt and record.wait_conditions then
 			local _, wait_condition = next(record.wait_conditions)
@@ -128,16 +133,26 @@ function find_next_cybersyn_stop(schedule_records, search_index)
 				local signal = wait_condition.condition.first_signal
 				local constant = wait_condition.condition.constant
 				local stop_type = signal and signal.name and ID_ITEM_TO_STATUS[signal.name]
-				if constant and stop_type then
+				if stop_type and constant and (not options.stop_id or options.stop_id == constant) then
+					---@type ScheduleSearchResult
 					return {
 						schedule_record = record,
 						schedule_index = i,
 						stop_type = stop_type,
 						stop_id = constant,
-						rail_stop = i > 1 and schedule_records[i-1].rail or nil,
+						rail_stop = i > 1 and schedule_records[i-1].rail and schedule_records[i-1] or nil,
 					}
 				end
 			end
+		elseif options.include_depot and not record.temporary then
+			---@type ScheduleSearchResult
+			return {
+				schedule_record = record,
+				schedule_index = i,
+				stop_type = STATUS_D,
+				stop_id = 0,
+				rail_stop = i > 1 and schedule_records[i-1].rail and schedule_records[i-1] or nil,
+			}
 		end
 	end
 end
