@@ -35,8 +35,8 @@ local lib = {}
 ---@param train Train
 ---@param schedule LuaSchedule
 ---@param found_cybersyn_stop ScheduleSearchResult
----@param schedule_offset integer
----@return integer offset_after_addition
+---@param schedule_offset integer keeps track of modifications to the actual schedule since found_cybersyn_stop was determined
+---@return integer updated_schedule_offset
 local function se_add_direct_to_station_order(map_data, train, schedule, found_cybersyn_stop, schedule_offset)
 	if not found_cybersyn_stop.rail_stop then
 		return schedule_offset
@@ -62,12 +62,13 @@ local function se_add_direct_to_station_order(map_data, train, schedule, found_c
 		return schedule_offset
 	end
 
-	local current = schedule.current
+	local real_index = found_cybersyn_stop.schedule_index + schedule_offset
+	local is_current_destination = schedule.current == real_index
 	local direct_to_station = create_direct_to_station_order(stop)
-	direct_to_station.index = { schedule_index = found_cybersyn_stop.schedule_index }
+	direct_to_station.index = { schedule_index = real_index }
 	schedule.add_record(direct_to_station)
-	if current < schedule.current then -- insert location was the current destination
-		schedule.go_to_station(current)
+	if is_current_destination then
+		schedule.go_to_station(real_index)
 	end
 	return schedule_offset + 1
 end
