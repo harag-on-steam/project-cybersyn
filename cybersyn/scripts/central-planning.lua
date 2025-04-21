@@ -58,11 +58,45 @@ local function get_network_name_from_item_network_name(item_network_name)
 	return network_name
 end
 
--- Trains are not allowed to move further than one surface away from their home surface.
-function is_train_allowed_to_travel(t_surface_id, s_surface_id, d_surface_id)
-	return t_surface_id == s_surface_id -- train is on the same surface as the stop
-		or d_surface_id == s_surface_id -- stop is on the home surface
-		or t_surface_id == d_surface_id -- train is on its home surface
+---Trains are not allowed to move further than one surface away from their home surface.
+---This only checks if the train would be allowed to travel, not if travel is actually possible.
+---@param train_surface uint surface index of the train
+---@param stop_surface uint surface index of a destination
+---@param home_surface uint surface index of the depot
+---@return boolean
+function is_train_allowed_to_travel(train_surface, stop_surface, home_surface)
+	return train_surface == stop_surface
+		or home_surface == stop_surface
+		or train_surface == home_surface
+end
+
+---Deliveries must be on the home surface, from the home surface or to the home surface.
+---This only checks if the delivery would be allowed, not if the surfaces are actually connected.
+---@param train_surface uint surface index of the train
+---@param provider_surface uint surface index of the provider stop
+---@param requester_surface uint surface index of the requester stop
+---@param home_surface uint surface index of the depot
+---@return boolean
+function is_delivery_allowed(train_surface, provider_surface, requester_surface, home_surface)
+	if requester_surface == provider_surface then
+		-- Same surface deliveries must be pure home surface deliveries.
+		-- Otherwise surface_connections won't be calculated and the train would not know how to find home.
+		-- As a consequence a train on a foreign surface must first return to its depot before it can continue to serve on its home surface.
+		--
+		-- A handler of surface connections (SE elevators) can remedy this situation
+		-- by returning the train from status TO_D to TO_D_BYPASS on return to the home surface.
+		-- If at that moment the train has not enough fuel the status should remain TO_D
+		-- because either there was enough fuel at the last requester or there is no matching refueler.
+		return train_surface == requester_surface and home_surface == requester_surface
+	end
+
+	if provider_surface == home_surface then
+		return train_surface == home_surface
+	end
+	if requester_surface == home_surface then
+		return train_surface == provider_surface or train_surface == home_surface
+	end
+	return false
 end
 
 ---Determine if the two given entities could have a train routed between them.
@@ -619,8 +653,7 @@ local function tick_dispatch(map_data, mod_settings)
 					end
 
 					local t_surface_id = train_stock.surface_index
-					if not is_train_allowed_to_travel(t_surface_id, r_surface_id, train.depot_surface_id)
-						or not is_train_allowed_to_travel(t_surface_id, p_surface_id, train.depot_surface_id) then
+					if not is_delivery_allowed(t_surface_id, p_surface_id, r_surface_id, train.depot_surface_id) then
 						goto train_continue
 					end
 
