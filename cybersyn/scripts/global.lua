@@ -191,6 +191,8 @@ function init_global()
 	storage.to_refuelers = {}
 	storage.each_refuelers = {}
 	storage.perf_cache = {}
+	storage.se_elevators = {}
+	storage.connected_surfaces = {}
 
 	IS_SE_PRESENT = remote.interfaces["space-exploration"] ~= nil
 end
