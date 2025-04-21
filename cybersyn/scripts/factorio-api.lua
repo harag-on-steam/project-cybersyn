@@ -163,19 +163,14 @@ end
 ---@param stop LuaEntity
 ---@param manifest Manifest
 ---@param schedule_settings Cybersyn.StationScheduleSettings
----@param with_id boolean?
+---@param include_id boolean? will add a condition that has the unit_number of the stop as a constant
 ---@return AddRecordData
-function create_loading_order(stop, manifest, schedule_settings, with_id)
+function create_loading_order(stop, manifest, schedule_settings, include_id)
 	---@type WaitCondition[]
-	local conditions, i = {}, 0
-	---@param condition WaitCondition
-	local function add(condition)
-		i = i + 1
-		conditions[i] = condition
-	end
+	local conditions = {}
 
-	if with_id then
-		add(stop_id_condition("cybersyn-provider-id", stop.unit_number))
+	if include_id then
+		conditions[#conditions + 1] = stop_id_condition(PROVIDER_ID_ITEM, stop.unit_number)
 	end
 
 	for _, item in ipairs(manifest) do
@@ -186,7 +181,7 @@ function create_loading_order(stop, manifest, schedule_settings, with_id)
 			cond_type = "item_count"
 		end
 
-		add({
+		conditions[#conditions + 1] = {
 			type = cond_type,
 			compare_type = "and",
 			condition = {
@@ -194,13 +189,13 @@ function create_loading_order(stop, manifest, schedule_settings, with_id)
 				first_signal = { type = item.type, name = item.name, quality = item.quality },
 				constant = item.count,
 			},
-		})
+		}
 	end
 	if schedule_settings.enable_inactive then
-		add(condition_wait_inactive)
+		conditions[#conditions + 1] = condition_wait_inactive
 	end
 	if schedule_settings.enable_circuit_condition then
-		add(condition_circuit)
+		conditions[#conditions + 1] = condition_circuit
 	end
 	return {
 		station = stop.backer_name,
@@ -211,36 +206,31 @@ end
 
 ---@param stop LuaEntity
 ---@param schedule_settings Cybersyn.StationScheduleSettings
----@param with_id boolean?
+---@param include_id boolean? will add a condition that has the unit_number of the stop as a constant
 ---@return AddRecordData
-function create_unloading_order(stop, schedule_settings, with_id)
+function create_unloading_order(stop, schedule_settings, include_id)
 	---@type WaitCondition[]
-	local conditions, i = {}, 0
-	---@param condition WaitCondition
-	local function add(condition)
-		i = i + 1
-		conditions[i] = condition
-	end
+	local conditions = {}
 
-	if with_id then
-		add(stop_id_condition("cybersyn-requester-id", stop.unit_number))
+	if include_id then
+		conditions[#conditions + 1] = stop_id_condition(REQUESTER_ID_ITEM, stop.unit_number)
 	end
 
 	if schedule_settings.enable_inactive then
-		add(condition_wait_inactive)
+		conditions[#conditions + 1] = condition_wait_inactive
 		if not mod_settings.allow_cargo_in_depot then
 			-- This implements the behavior specified in the documentation for
 			-- allow_cargo_in_depot. When enabled, trains only wait for inactivity
 			-- when unloading at requesters.
-			add(condition_empty)
+			conditions[#conditions + 1] = condition_empty
 		end
 	else
 		-- No inactivity condition = always wait for empty
-		add(condition_empty)
+		conditions[#conditions + 1] = condition_empty
 	end
 
 	if schedule_settings.enable_circuit_condition then
-		add(condition_circuit)
+		conditions[#conditions + 1] = condition_circuit
 	end
 
 	return {

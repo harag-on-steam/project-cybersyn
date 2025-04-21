@@ -107,7 +107,7 @@
 ---@field public last_manifest_tick int
 ---@field public has_filtered_wagon true?
 ---@field public is_available true?
----@field public depot_surface_id uint
+---@field public depot_surface_id uint -- use_any_depot trains don't need to depend on an existing depot stop
 ---@field public depot_id uint
 ---@field public use_any_depot true?
 ---@field public disable_bypass true?
