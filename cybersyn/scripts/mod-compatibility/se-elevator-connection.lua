@@ -2,11 +2,12 @@
 ---@field public connector LuaEntity
 ---@field public elevator LuaEntity
 ---@field public stop LuaEntity
----@field public stop_id integer
----@field public elevator_id integer
+---@field public stop_id uint
+---@field public elevator_id uint
+---@field public surface_id uint
 ---@field public is_orbit boolean
 
----Can be accessed with field-names or with surface indices
+---Can be accessed with field-names or with the corresponding surface indices
 ---@class Cybersyn.ElevatorData
 ---@field public ground Cybersyn.ElevatorEndData
 ---@field public orbit Cybersyn.ElevatorEndData
@@ -145,6 +146,8 @@ function Elevators.from_entity(entity)
 	end
 	data.ground.is_orbit = false
 	data.orbit.is_orbit = true
+	end1.surface_id = entity.surface_index
+	end2.surface_id = opposite_surface_index
 
 	storage.se_elevators[data.ground.elevator_id] = data
 	storage.se_elevators[data.orbit.elevator_id] = data
