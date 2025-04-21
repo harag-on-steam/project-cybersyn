@@ -58,6 +58,13 @@ local function get_network_name_from_item_network_name(item_network_name)
 	return network_name
 end
 
+-- Trains are not allowed to move further than one surface away from their home surface.
+function is_train_allowed_to_travel(t_surface_id, s_surface_id, d_surface_id)
+	return t_surface_id == s_surface_id -- train is on the same surface as the stop
+		or d_surface_id == s_surface_id -- stop is on the home surface
+		or t_surface_id == d_surface_id -- train is on its home surface
+end
+
 ---Determine if the two given entities could have a train routed between them.
 ---The entities may be either train stops or rolling stock of trains.
 ---@param e1 LuaEntity?
@@ -485,6 +492,8 @@ local function tick_dispatch(map_data, mod_settings)
 		local correctness = 0
 		local closest_to_correct_p_station = nil
 
+		local r_surface_id = r_station.entity_stop.surface_index
+
 		---@type uint?
 		local p_station_i = nil
 		local best_train_id = nil
@@ -495,7 +504,7 @@ local function tick_dispatch(map_data, mod_settings)
 		---@type uint
 		local j = 1
 		while j <= #p_stations do
-			local p_flag, r_flag, netand, best_p_train_id, best_t_prior, best_capacity, best_t_to_p_dist, effective_count, override_threshold, p_prior, best_p_to_r_dist, effective_threshold, slot_threshold, item_deliveries, surface_connections
+			local p_flag, r_flag, netand, best_p_train_id, best_t_prior, best_capacity, best_t_to_p_dist, effective_count, override_threshold, p_prior, best_p_to_r_dist, effective_threshold, slot_threshold, item_deliveries, surface_connections, p_surface_id
 
 			local p_station_id = p_stations[j]
 			local p_station = stations[p_station_id]
@@ -520,6 +529,7 @@ local function tick_dispatch(map_data, mod_settings)
 			if not p_station.entity_stop.valid then
 				goto p_continue
 			end
+			p_surface_id = p_station.entity_stop.surface_index
 
 			surface_connections = Surfaces.find_surface_connections(
 				p_station.entity_stop.surface,
@@ -608,8 +618,9 @@ local function tick_dispatch(map_data, mod_settings)
 						goto train_continue
 					end
 
-					-- Verify train is routable to requester.
-					if not is_train_routable(train_stock, r_station.entity_stop) then
+					local t_surface_id = train_stock.surface_index
+					if not is_train_allowed_to_travel(t_surface_id, r_surface_id, train.depot_surface_id)
+						or not is_train_allowed_to_travel(t_surface_id, p_surface_id, train.depot_surface_id) then
 						goto train_continue
 					end
 
