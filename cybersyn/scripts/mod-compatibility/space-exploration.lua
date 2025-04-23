@@ -369,7 +369,7 @@ function lib.se_add_refueler_schedule(map_data, data)
 
 	builder:add_elevator_if_necessary(data.t_surface, data.f_surface, data.t_stock)
 	builder:add_direct_to_stop(data.f_stop)
-	builder:add(create_inactivity_order(data.f_stop.backer_name))
+	builder:add(create_inactivity_order(data.f_stop.backer_name, REFUELER_ID_ITEM, data.f_stop.unit_number))
 
 	builder:add_elevator_if_necessary(data.f_surface, data.train.depot_surface_id, data.f_stop)
 	-- there must be at least one surface travel, no need to deal with require_same_depot here
