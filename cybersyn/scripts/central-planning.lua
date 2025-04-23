@@ -77,23 +77,19 @@ end
 ---@param requester_surface uint surface index of the requester stop
 ---@param home_surface uint surface index of the depot
 ---@return boolean
-function is_delivery_allowed(train_surface, provider_surface, requester_surface, home_surface)
+function is_delivery_allowed_for_train(train_surface, provider_surface, requester_surface, home_surface)
 	if requester_surface == provider_surface then
 		-- Same surface deliveries must be pure home surface deliveries.
 		-- Otherwise surface_connections won't be calculated and the train would not know how to find home.
-		-- As a consequence a train on a foreign surface must first return to its depot before it can continue to serve on its home surface.
-		--
-		-- A handler of surface connections (SE elevators) can remedy this situation
-		-- by returning the train from status TO_D to TO_D_BYPASS on return to the home surface.
-		-- If at that moment the train has not enough fuel the status should remain TO_D
-		-- because either there was enough fuel at the last requester or there is no matching refueler.
+		-- This is not a problem because the train is still TO_D_BYPASS.
+		-- The state just doesn't take effect for home surface deliveries until the train is back on the home surface.
 		return train_surface == requester_surface and home_surface == requester_surface
 	end
 
-	if provider_surface == home_surface then
+	if provider_surface == home_surface then -- from the home surface
 		return train_surface == home_surface
 	end
-	if requester_surface == home_surface then
+	if requester_surface == home_surface then -- to the home surface
 		return train_surface == provider_surface or train_surface == home_surface
 	end
 	return false
@@ -642,7 +638,7 @@ local function tick_dispatch(map_data, mod_settings)
 					end
 
 					local t_surface_id = train_stock.surface_index
-					if not is_delivery_allowed(t_surface_id, p_surface_id, r_surface_id, train.depot_surface_id) then
+					if not is_delivery_allowed_for_train(t_surface_id, p_surface_id, r_surface_id, train.depot_surface_id) then
 						goto train_continue
 					end
 
