@@ -27,8 +27,8 @@ end
 ---@param entity0 LuaEntity
 ---@param entity1 LuaEntity
 function get_dist(entity0, entity1)
-	local surface0 = entity0.surface.index
-	local surface1 = entity1.surface.index
+	local surface0 = entity0.surface_index
+	local surface1 = entity1.surface_index
 	return (surface0 == surface1 and get_distance(entity0.position, entity1.position) or DIFFERENT_SURFACE_DISTANCE)
 end
 
