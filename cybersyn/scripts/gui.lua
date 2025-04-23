@@ -302,19 +302,22 @@ local function handle_refresh_allow(e)
 	update_allow_list_section(e.player_index, combId)
 end
 
----@alias EntityOpenCloseHandler fun(EventData, LuaPlayer, LuaEntity, is_ghost) -- player and entity are guaranteed to be valid, is_ghost indicates if the entity is a ghost
----@type { [string]: { [defines.events]: EntityOpenCloseHandler[] }} 
-local entity_gui_handlers = {}
+---@alias EntityOpenedHandler fun(event: EventData.on_gui_opened, player: LuaPlayer, entity: LuaEntity, is_ghost: boolean) player and entity are guaranteed to be valid, is_ghost indicates if the entity is a ghost
+---@type { [string]: EntityOpenedHandler[] }
+local entity_opened_handlers = {}
+
+---@alias EntityClosedHandler fun(event: EventData.on_gui_opened, player: LuaPlayer, entity: LuaEntity, is_ghost: boolean) player and entity are guaranteed to be valid, is_ghost indicates if the entity is a ghost
+---@type { [string]: EntityClosedHandler[] }
+local entity_closed_handlers = {}
 
 --- Adds a gui_opened-handler to a specific entity type.
 --- gui_opened-handlers can either attach additional GUIs to the vanilla GUI of an entity or replace it entirely via player.opened
 --- In the latter case only one handler must be installed for a single entity type.
 --- Handlers also get called for ghosts of the entity and must decide wether to act or not.
 ---@param entity_name string entity name to add the handler to
----@param handler EntityOpenCloseHandler the handler
+---@param handler EntityOpenedHandler the handler
 function add_entity_opened_handler(entity_name, handler)
-	local entity_handlers = get_or_create(entity_gui_handlers, entity_name)
-	local event_handlers = get_or_create(entity_handlers, defines.events.on_gui_opened)
+	local event_handlers = get_or_create(entity_opened_handlers, entity_name)
 	table.insert(event_handlers, handler)
 end
 
@@ -323,12 +326,11 @@ end
 --- so that it is not visible when the vanilla GUI opens for the same machine type but a different entity type.
 --- Handlers also get called for ghosts of the entity and must decide wether to act or not.
 --- Fully custom GUIs cannot use this function.
---- Instead, they should install an on_gui_closed handler on the main window of the custom GUI via flib.
+--- Instead, they should install an on_gui_closed handler on the GUI element they passed to player.opened using flib.
 ---@param entity_name string entity name to add the handler to
----@param handler EntityOpenCloseHandler the handler
+---@param handler EntityClosedHandler the handler
 function add_entity_closed_handler(entity_name, handler)
-	local entity_handlers = get_or_create(entity_gui_handlers, entity_name)
-	local event_handlers = get_or_create(entity_handlers, defines.events.on_gui_closed)
+	local event_handlers = get_or_create(entity_closed_handlers, entity_name)
 	table.insert(event_handlers, handler)
 end
 
@@ -343,14 +345,14 @@ local function on_entity_gui_opened_closed(event)
 	local is_ghost = name == "entity-ghost"
 	if is_ghost then name = entity.ghost_name end
 
-	local event_handlers = entity_gui_handlers[name]
+	local event_handlers = event.name == defines.events.on_gui_opened
+		and entity_opened_handlers[name]
+		or entity_closed_handlers[name]
+
 	if event_handlers then
-		local handlers = event_handlers[event.name]
-		if handlers then
-			local player = assert(game.get_player(event.player_index))
-			for _, handler in ipairs(handlers) do
-				handler(event, player, entity, is_ghost)
-			end
+		local player = assert(game.get_player(event.player_index))
+		for _, handler in ipairs(event_handlers) do
+			handler(event --[[@as any]], player, entity, is_ghost)
 		end
 	end
 	return true
