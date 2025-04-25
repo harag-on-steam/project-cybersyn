@@ -27,4 +27,4 @@ requester_id_item = flib.copy_prototype(provider_id_item, REQUESTER_ID_ITEM)
 requester_id_item.icon = "__base__/graphics/icons/arrows/signal-input.png"
 
 refueler_id_item = flib.copy_prototype(provider_id_item, REFUELER_ID_ITEM)
-refueler_id_item.icon = "__base__/graphics/icons/arrows/signal-clockwise-circle-arrow.png"
+refueler_id_item.icon = "__base__/graphics/icons/signal/signal-fuel.png"
