@@ -177,10 +177,9 @@ end
 
 ---@param e EventData.on_gui_switch_state_changed
 local function se_elevator_toggle(e)
-    local unit_number = e.element.tags.unit_number --[[@as int?]]
-    if not unit_number then return end
+	local player = assert(game.get_player(e.player_index))
 
-    local data = Elevators.from_unit_number(unit_number)
+	local data = Elevators.from_entity(player.opened --[[@as LuaEntity? ]])
 	if not data then return end
 
 	data.cs_enabled = e.element.switch_state == "right"
@@ -197,11 +196,16 @@ gui.add_handlers({
 local function create_frame(player, elevator, elevator_data)
 	gui.add(player.gui.relative, {
 		type = "frame", name = Elevators.ui_name,
-		anchor = { gui = defines.relative_gui_type.assembling_machine_gui, position = defines.relative_gui_position.top },
+		anchor = {
+			gui = defines.relative_gui_type.assembling_machine_gui,
+			position = defines.relative_gui_position.top,
+			name = Elevators.name_elevator,
+		},
 		direction = "horizontal",
 		style_mods = { padding = { 5, 5, 0, 5 } }, -- top right bottom left
 		{
 			type = "flow",
+			name = "flow",
 			{
 				type = "label", style = "frame_title", ignored_by_interaction = true,
 				style_mods = { top_margin = -3 },
@@ -210,7 +214,6 @@ local function create_frame(player, elevator, elevator_data)
 			{
 				type = "switch", name = "connect_switch",
 				style_mods = { top_margin = 2 },
-				tags = { unit_number = elevator.unit_number },
 				allow_none_state = false,
 				switch_state = elevator_data.cs_enabled and "right" or "left",
 				right_label_caption = "Connected",
@@ -230,12 +233,12 @@ function Elevators.on_entity_gui_opened(event, player, entity, is_ghost)
 	local elevator_data = Elevators.from_entity(entity)
 	if not elevator_data then return end
 
-	local frame = player.gui.relative[Elevators.ui_name]
+	local frame = player.gui.relative[Elevators.ui_name] --[[@as LuaGuiElement?]]
 	if frame then
-		frame.destroy()
+		frame.flow.connect_switch.switch_state = elevator_data.cs_enabled and "right" or "left"
+	else
+		create_frame(player, entity, elevator_data)
 	end
-
-	create_frame(player, entity, elevator_data)
 end
 
 ---@param event EventData.on_gui_closed

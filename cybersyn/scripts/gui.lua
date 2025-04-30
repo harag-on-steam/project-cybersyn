@@ -306,7 +306,7 @@ end
 ---@type { [string]: EntityOpenedHandler[] }
 local entity_opened_handlers = {}
 
----@alias EntityClosedHandler fun(event: EventData.on_gui_opened, player: LuaPlayer, entity: LuaEntity, is_ghost: boolean) player and entity are guaranteed to be valid, is_ghost indicates if the entity is a ghost
+---@alias EntityClosedHandler fun(event: EventData.on_gui_closed, player: LuaPlayer, entity: LuaEntity, is_ghost: boolean) player and entity are guaranteed to be valid, is_ghost indicates if the entity is a ghost
 ---@type { [string]: EntityClosedHandler[] }
 local entity_closed_handlers = {}
 
