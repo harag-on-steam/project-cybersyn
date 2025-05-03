@@ -14,6 +14,7 @@ if mods["nullius"] then
 	combinator_item.order = "nullius-eca"
 end
 
+---@type data.ItemPrototype
 provider_id_item = {
 	type = "item",
 	name = PROVIDER_ID_ITEM,
@@ -21,6 +22,7 @@ provider_id_item = {
 	icon = "__base__/graphics/icons/arrows/signal-output.png",
 	stack_size = 1,
 	weight = 100 * tons, -- too heavy for a rocket
+	auto_recycle = false,
 }
 
 requester_id_item = flib.copy_prototype(provider_id_item, REQUESTER_ID_ITEM)
